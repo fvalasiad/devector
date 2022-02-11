@@ -11,6 +11,7 @@ set(TESTS
   operator-equals-test.cpp 
   iterator-test.cpp
   capacity-test.cpp
+  access-test.cpp
 )
 
 add_executable(
