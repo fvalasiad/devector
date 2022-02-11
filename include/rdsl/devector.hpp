@@ -82,6 +82,12 @@ struct offset_by{
     }
 };
 
+template<class al>
+using al_traits = std::allocator_traits<al>;
+
+template<class it>
+using it_traits = std::iterator_traits<it>;
+
 template<typename T, class Alloc = std::allocator<T>, class OffsetBy = rdsl::offset_by>
 struct devector{
     using value_type = T;
@@ -89,10 +95,10 @@ struct devector{
     using offset_by_type = OffsetBy;
     using reference = value_type&;
     using const_reference = const value_type&;
-    using pointer = typename std::allocator_traits<allocator_type>::pointer;
-    using const_pointer = typename std::allocator_traits<allocator_type>::const_pointer;
-    using size_type = typename std::allocator_traits<allocator_type>::size_type;
-    using difference_type = typename std::allocator_traits<allocator_type>::difference_type;
+    using pointer = typename al_traits<allocator_type>::pointer;
+    using const_pointer = typename al_traits<allocator_type>::const_pointer;
+    using size_type = typename al_traits<allocator_type>::size_type;
+    using difference_type = typename al_traits<allocator_type>::difference_type;
 
 private:
     pointer arr;
@@ -103,6 +109,9 @@ private:
     static constexpr float factor = 1.6f; // new_capacity = capacity * factor
     offset_by_type offs;
     allocator_type alloc;
+
+    template<class it>
+    using it_traits = it_traits<it>;
 
     class devector_iterator: public std::iterator<std::random_access_iterator_tag, value_type>{
         pointer ptr = nullptr;
@@ -345,7 +354,7 @@ private:
 
         ~buffer_guard(){
             while(begin != end){
-                std::allocator_traits<allocator_type>::destroy(alloc, begin);
+                al_traits<allocator_type>::destroy(alloc, begin);
                 ++begin;
             }
         }
@@ -381,7 +390,7 @@ public:
     }
 
     size_type max_size() const{
-        return std::allocator_traits<allocator_type>::max_size(alloc);
+        return al_traits<allocator_type>::max_size(alloc);
     }
 
     iterator begin() noexcept{
@@ -461,7 +470,7 @@ private:
     void construct(size_type n, const_reference val){
         begin_ = end_ = arr + offs.off_by(capacity_ - n);
         while(n--){
-            std::allocator_traits<allocator_type>::construct(alloc, end_, val);
+            al_traits<allocator_type>::construct(alloc, end_, val);
             ++end_;
         }
     }
@@ -470,7 +479,7 @@ private:
     void construct(InputIterator first, InputIterator last, size_type distance){
         begin_ = end_ = arr + offs.off_by(capacity_ - distance);
         while(first != last){
-            std::allocator_traits<allocator_type>::construct(alloc, end_, *first);
+            al_traits<allocator_type>::construct(alloc, end_, *first);
             ++first;
             ++end_;
         }
@@ -480,7 +489,7 @@ private:
     void construct_move(InputIterator first, InputIterator last, size_type distance){
         begin_ = end_ = arr + offs.off_by(capacity_ - distance);
         while(first != last){
-            std::allocator_traits<allocator_type>::construct(alloc, end_, std::move_if_noexcept(*first));
+            al_traits<allocator_type>::construct(alloc, end_, std::move_if_noexcept(*first));
             ++first;
             ++end_;
         }
@@ -488,7 +497,7 @@ private:
 
     void destroy_all() noexcept{
         while(begin_ != end_){
-            std::allocator_traits<allocator_type>::destroy(alloc, begin_);
+            al_traits<allocator_type>::destroy(alloc, begin_);
             ++begin_;
         }
     }
@@ -520,8 +529,8 @@ private:
         buffer_guard buf_guard(alloc, mem_guard.arr + offset, mem_guard.arr + offset + size());
      
         for(; begin_ != end_; ++begin_, ++buf_guard.end){
-            std::allocator_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*begin_));
-            std::allocator_traits<allocator_type>::destroy(alloc, begin_);
+            al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*begin_));
+            al_traits<allocator_type>::destroy(alloc, begin_);
         }
         deallocate();
 
@@ -541,8 +550,8 @@ private:
     template<int step, int dec, class Pred>
     void move_elements(iterator& dest, iterator& src, Pred pred){
         while(!empty() && !in_bounds(dest) && pred()){
-            std::allocator_traits<allocator_type>::construct(alloc, dest, std::move(src[dec]));
-            std::allocator_traits<allocator_type>::destroy(alloc, src + dec);
+            al_traits<allocator_type>::construct(alloc, dest, std::move(src[dec]));
+            al_traits<allocator_type>::destroy(alloc, src + dec);
             src = src + step;
             dest = dest + step;
         }
@@ -597,14 +606,14 @@ private:
             if(position == begin_){
                 buffer_guard front_guard(begin_ - n);
                 while(n--){
-                    std::allocator_traits<allocator_type>::construct(alloc, front_guard.end, std::forward<Value>(val)...);
+                    al_traits<allocator_type>::construct(alloc, front_guard.end, std::forward<Value>(val)...);
                     ++front_guard.end;
                 }
                 begin_ = front_guard.begin;
                 front_guard.release();
             }else if(position == end_){
                 while(n--){
-                    std::allocator_traits<allocator_type>::construct(alloc, end_, std::forward<Value>(val)...);
+                    al_traits<allocator_type>::construct(alloc, end_, std::forward<Value>(val)...);
                     ++end_;
                 }
             }else{
@@ -617,7 +626,7 @@ private:
                 buffer_guard back_guard(alloc, free_space + n, new_end);
 
                 while(n--){
-                    std::allocator_traits<allocator_type>::construct(alloc, front_guard.end, std::forward<Value>(val)...);
+                    al_traits<allocator_type>::construct(alloc, front_guard.end, std::forward<Value>(val)...);
                     ++front_guard.end;
                 }
 
@@ -637,17 +646,17 @@ private:
 
             auto it = begin();
             for(; it != position; ++it){
-                std::allocator_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
+                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
                 ++buf_guard.end;
             }
 
             pos = buf_guard.end;
             while(n--){
-                std::allocator_traits<allocator_type>::construct(alloc, buf_guard.end, std::forward<Value>(val)...);
+                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::forward<Value>(val)...);
                 ++buf_guard.end;
             }
             for(; it != end(); ++it){
-                std::allocator_traits<allocator_type>::construct(alloc, std::move_if_noexcept(*it));
+                al_traits<allocator_type>::construct(alloc, std::move_if_noexcept(*it));
             }
 
             destroy_all();
@@ -705,7 +714,10 @@ public:
     :devector(n, value_type())
     {}
 
-    template<class InputIterator, enable_if_t<is_at_least_input<InputIterator>::value, int> = 0>
+    template<
+    class InputIterator,
+    enable_if_t<is_at_least_input<typename it_traits<InputIterator>::iterator_category>::value, int> = 0
+    >
     devector(
         InputIterator first,
         InputIterator last,
@@ -744,7 +756,7 @@ public:
     )
     :devector(allocator, offset_by)
     {
-        if(is_at_least_forward<typename std::iterator_traits<InputIterator>::iterator_category>::value){
+        if(is_at_least_forward<typename it_traits<InputIterator>::iterator_category>::value){
             const size_type distance = std::distance(first, last);
             arr = allocate_n(distance);
             try{
@@ -784,7 +796,7 @@ public:
     {}
 
     devector(const devector& x)
-    :devector(x, std::allocator_traits<allocator_type>::select_on_container_copy_construction(x.alloc), x.offs)
+    :devector(x, al_traits<allocator_type>::select_on_container_copy_construction(x.alloc), x.offs)
     {}
 
     devector(devector&& x) noexcept
@@ -879,7 +891,7 @@ public:
 
         destroy_all();
 
-        if(std::allocator_traits<allocator_type>::propagate_on_container_copy_assignment && alloc != x.alloc){
+        if(al_traits<allocator_type>::propagate_on_container_copy_assignment && alloc != x.alloc){
             auto new_capacity = capacity_to_fit(x.size());
             
             deallocate();
@@ -907,7 +919,7 @@ public:
 
         destroy_all();
 
-        if(!std::allocator_traits<allocator_type>::propagate_on_container_move_assignment){
+        if(!al_traits<allocator_type>::propagate_on_container_move_assignment){
             if(alloc != x.alloc){
                 reallocate(capacity_to_fit(x.size()));
                 construct_move(x.begin(), x.end(), x.size());
@@ -1030,7 +1042,7 @@ public:
             reallocate(new_capacity, new_capacity - size() - offs.off_by(new_capacity - size()) + 1);
         }
 
-        std::allocator_traits<allocator_type>::construct(alloc, end_, val);
+        al_traits<allocator_type>::construct(alloc, end_, val);
         ++end_;
     }
 
@@ -1040,7 +1052,7 @@ public:
             reallocate(new_capacity, new_capacity - size() - offs.off_by(new_capacity - size()) + 1);
         }
 
-        std::allocator_traits<allocator_type>::construct(alloc, end_, std::move(val));
+        al_traits<allocator_type>::construct(alloc, end_, std::move(val));
         ++end_;
     }
 
@@ -1050,7 +1062,7 @@ public:
             reallocate(new_capacity, offs.off_by(new_capacity - size()) + 1);
         }
 
-        std::allocator_traits<allocator_type>::construct(alloc, begin_ - 1, val);
+        al_traits<allocator_type>::construct(alloc, begin_ - 1, val);
         --begin_;
     }
 
@@ -1060,17 +1072,17 @@ public:
             reallocate(new_capacity, offs.off_by(new_capacity - size()) + 1);
         }
 
-        std::allocator_traits<allocator_type>::construct(alloc, begin_ - 1, std::move(val));
+        al_traits<allocator_type>::construct(alloc, begin_ - 1, std::move(val));
         --begin_;
     }
 
     void pop_back() noexcept{
-        std::allocator_traits<allocator_type>::destroy(alloc, end_ - 1);
+        al_traits<allocator_type>::destroy(alloc, end_ - 1);
         --end_;
     }
 
     void pop_front() noexcept{
-        std::allocator_traits<allocator_type>::destroy(alloc, begin_);
+        al_traits<allocator_type>::destroy(alloc, begin_);
         ++begin_;
     }
 
@@ -1094,7 +1106,7 @@ public:
             if(position == begin_){
                 buffer_guard front_guard(begin_ - n);
                 while(first != last){
-                    std::allocator_traits<allocator_type>::construct(alloc, front_guard.end, *first);
+                    al_traits<allocator_type>::construct(alloc, front_guard.end, *first);
                     ++front_guard.end;
                     ++first;
                 }
@@ -1102,7 +1114,7 @@ public:
                 front_guard.release();
             }else if(position == end_){
                 while(first != last){
-                    std::allocator_traits<allocator_type>::construct(alloc, end_, *first);
+                    al_traits<allocator_type>::construct(alloc, end_, *first);
                     ++end_;
                     ++first;
                 }
@@ -1116,7 +1128,7 @@ public:
                 buffer_guard back_guard(alloc, free_space + n, new_end);
 
                 while(first != last){
-                    std::allocator_traits<allocator_type>::construct(alloc, front_guard.end, *first);
+                    al_traits<allocator_type>::construct(alloc, front_guard.end, *first);
                     ++front_guard.end;
                     ++first;
                 }
@@ -1137,18 +1149,18 @@ public:
 
             auto it = begin();
             for(; it != position; ++it){
-                std::allocator_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
+                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
                 ++buf_guard.end;
             }
 
             pos = buf_guard.end;
             while(first != last){
-                std::allocator_traits<allocator_type>::construct(alloc, buf_guard.end, *first);
+                al_traits<allocator_type>::construct(alloc, buf_guard.end, *first);
                 ++buf_guard.end;
                 ++first;
             }
             for(; it != end(); ++it){
-                std::allocator_traits<allocator_type>::construct(alloc, std::move_if_noexcept(*it));
+                al_traits<allocator_type>::construct(alloc, std::move_if_noexcept(*it));
             }
 
             destroy_all();
@@ -1196,8 +1208,8 @@ public:
         buffer_guard front_guard(alloc, new_begin);
 
         while(!in_bounds(front_guard.end) && begin_ != first){
-            std::allocator_traits<allocator_type>::construct(alloc, front_guard.end, std::move(*begin_));
-            std::allocator_traits<allocator_type>::destroy(alloc, begin_);
+            al_traits<allocator_type>::construct(alloc, front_guard.end, std::move(*begin_));
+            al_traits<allocator_type>::destroy(alloc, begin_);
             ++begin_;
             ++front_guard.end;
         }
@@ -1206,13 +1218,13 @@ public:
             pos = front_guard.end;
 
             while(begin_ != last){
-                std::allocator_traits<allocator_type>::destroy(alloc, begin_);
+                al_traits<allocator_type>::destroy(alloc, begin_);
                 ++begin_;
             }
 
             while(!empty() && !in_bounds(front_guard.end)){
-                std::allocator_traits<allocator_type>::construct(alloc, front_guard.end, std::move(*begin_));
-                std::allocator_traits<allocator_type>::destroy(alloc, begin_);
+                al_traits<allocator_type>::construct(alloc, front_guard.end, std::move(*begin_));
+                al_traits<allocator_type>::destroy(alloc, begin_);
                 ++begin_;
                 ++front_guard.end;
             }
@@ -1221,8 +1233,8 @@ public:
         buffer_guard back_guard(alloc, new_end);
 
         while(!empty() && !in_bounds(back_guard.begin) && end_ != last){
-            std::allocator_traits<allocator_type>::construct(alloc, back_guard.begin, std::move(end_[-1]));
-            std::allocator_traits<allocator_type>::destroy(alloc, end_ - 1);
+            al_traits<allocator_type>::construct(alloc, back_guard.begin, std::move(end_[-1]));
+            al_traits<allocator_type>::destroy(alloc, end_ - 1);
             --end_;
             --back_guard.begin;
         }
@@ -1231,13 +1243,13 @@ public:
             pos = back_guard.begin;
 
             while(end_ >= first){
-                std::allocator_traits<allocator_type>::destroy(alloc, end_[-1]);
+                al_traits<allocator_type>::destroy(alloc, end_[-1]);
                 --end_;
             }
 
             while(!empty() && !in_bounds(back_guard.begin)){
-                std::allocator_traits<allocator_type>::construct(alloc, back_guard.begin, std::move(end_[-1]));
-                std::allocator_traits<allocator_type>::destroy(alloc, end_ - 1);
+                al_traits<allocator_type>::construct(alloc, back_guard.begin, std::move(end_[-1]));
+                al_traits<allocator_type>::destroy(alloc, end_ - 1);
                 --end_;
                 --back_guard.begin;
             }
@@ -1262,7 +1274,7 @@ public:
         std::swap(end_, x.end_);
         std::swap(capacity_, x.capacity_);
         std::swap(offs, x.offs);
-        if(std::allocator_traits<allocator_type>::propagate_on_container_swap){
+        if(al_traits<allocator_type>::propagate_on_container_swap){
             std::swap(alloc, x.alloc);
         }
     }
