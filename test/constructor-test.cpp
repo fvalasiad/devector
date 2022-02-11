@@ -9,7 +9,6 @@ TEST(ConstructorTest, defaultConstructor) {
     EXPECT_EQ(vec.size(), 0);
     EXPECT_EQ(vec.capacity(), 0);
     EXPECT_TRUE(vec.empty());
-    std::vector<int> v(15, 20);
 }
 
 TEST(ConstructorTest, fillConstructor) {
@@ -34,22 +33,55 @@ TEST(ConstructorTest, rangeConstructor) {
     rdsl::devector<int> vec0(10,20);
 
     rdsl::devector<int> vec1(vec0.begin(), vec0.end(), vec0.size());
-    EXPECT_NE(vec1.data(), nullptr);
+    ASSERT_NE(vec1.data(), nullptr);
     EXPECT_EQ(vec1.size(), 10);
     EXPECT_GE(vec1.capacity(), 10);
-    EXPECT_FALSE(vec0.empty());
+    ASSERT_FALSE(vec0.empty());
 
     for(const int& i: vec1){
-        EXPECT_EQ(i, 20);
+        ASSERT_EQ(i, 20);
     }
 
     rdsl::devector<int> vec2(vec1.begin(), vec1.end());
-    EXPECT_NE(vec2.data(), nullptr);
+    ASSERT_NE(vec2.data(), nullptr);
     EXPECT_EQ(vec2.size(), 10);
     EXPECT_GE(vec2.capacity(), 10);
-    EXPECT_FALSE(vec2.empty());
+    ASSERT_FALSE(vec2.empty());
 
     for(const int& i: vec2){
-        EXPECT_EQ(i, 20);
+        ASSERT_EQ(i, 20);
     }
+}
+
+TEST(ConstructorTest, copyConstructor) {
+    rdsl::devector<int> vec0(10,20);
+
+    rdsl::devector<int> vec1(vec0);
+    ASSERT_NE(vec1.data(), nullptr);
+    EXPECT_EQ(vec1.size(), 10);
+    EXPECT_GE(vec1.capacity(), 10);
+    ASSERT_FALSE(vec0.empty());
+
+    for(const int& i: vec1){
+        ASSERT_EQ(i, 20);
+    }
+}
+
+TEST(ConstructorTest, moveConstructor) {
+    rdsl::devector<int> vec0(10,20);
+
+    rdsl::devector<int> vec1(std::move(vec0));
+    ASSERT_NE(vec1.data(), nullptr);
+    EXPECT_EQ(vec1.size(), 10);
+    EXPECT_GE(vec1.capacity(), 10);
+    ASSERT_FALSE(vec1.empty());
+
+    for(const int& i: vec1){
+        ASSERT_EQ(i, 20);
+    }
+
+    EXPECT_EQ(vec0.data(), nullptr);
+    EXPECT_EQ(vec0.size(), 0);
+    EXPECT_EQ(vec0.capacity(), 0);
+    EXPECT_TRUE(vec0.empty());
 }
