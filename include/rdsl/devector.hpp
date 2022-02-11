@@ -38,6 +38,12 @@
 
 namespace rdsl{
 
+template<class al>
+using al_traits = std::allocator_traits<al>;
+
+template<class it>
+using it_traits = std::iterator_traits<it>;
+
 template<class It>
 struct is_at_least_forward{
     static constexpr bool value = false;
@@ -76,17 +82,14 @@ template<bool B, class T = void>
 using enable_if_t = std::enable_if_t<B, T>;
 #endif
 
+template<class It>
+using is_iterator = enable_if_t<is_at_least_input<typename it_traits<It>::iterator_category>::value, int>;
+
 struct offset_by{
     static size_t off_by(size_t free_blocks) noexcept{
         return free_blocks / 2;
     }
 };
-
-template<class al>
-using al_traits = std::allocator_traits<al>;
-
-template<class it>
-using it_traits = std::iterator_traits<it>;
 
 template<typename T, class Alloc = std::allocator<T>, class OffsetBy = rdsl::offset_by>
 struct devector{
@@ -475,7 +478,7 @@ private:
         }
     }
 
-    template<class InputIterator>
+    template<class InputIterator, is_iterator<InputIterator> = 0>
     void construct(InputIterator first, InputIterator last, size_type distance){
         begin_ = end_ = arr + offs.off_by(capacity_ - distance);
         while(first != last){
@@ -485,7 +488,7 @@ private:
         }
     }
 
-    template<class InputIterator>
+    template<class InputIterator, is_iterator<InputIterator> = 0>
     void construct_move(InputIterator first, InputIterator last, size_type distance){
         begin_ = end_ = arr + offs.off_by(capacity_ - distance);
         while(first != last){
@@ -714,10 +717,7 @@ public:
     :devector(n, value_type())
     {}
 
-    template<
-    class InputIterator,
-    enable_if_t<is_at_least_input<typename it_traits<InputIterator>::iterator_category>::value, int> = 0
-    >
+    template<class InputIterator, is_iterator<InputIterator> = 0>
     devector(
         InputIterator first,
         InputIterator last,
@@ -737,17 +737,17 @@ public:
        }
     }
 
-    template<class InputIterator, enable_if_t<is_at_least_input<InputIterator>::value, int> = 0>
+    template<class InputIterator, is_iterator<InputIterator> = 0>
     devector(
         InputIterator first,
         InputIterator last,
         size_type distance,
-        const offset_by_type& offset_by = offset_by_type()
+        const offset_by_type& offset_by
     )
     :devector(first, last, distance, allocator_type(), offset_by)
     {}
 
-    template<class InputIterator, enable_if_t<is_at_least_input<InputIterator>::value, int> = 0>
+    template<class InputIterator, is_iterator<InputIterator> = 0>
     devector(
         InputIterator first,
         InputIterator last,
@@ -774,11 +774,11 @@ public:
         }
     }
 
-    template<class InputIterator, enable_if_t<is_at_least_input<InputIterator>::value, int> = 0>
+    template<class InputIterator, is_iterator<InputIterator> = 0>
     devector(
         InputIterator first,
         InputIterator last,
-        const offset_by_type& offset_by = offset_by_type()
+        const offset_by_type& offset_by
     )
     :devector(first, last, allocator_type(), offset_by)
     {}
@@ -842,7 +842,7 @@ public:
         deallocate();
     }
 
-    template <class InputIterator, enable_if_t<is_at_least_input<InputIterator>::value, int> = 0>
+    template<class InputIterator, is_iterator<InputIterator> = 0>
     void assign (InputIterator first, InputIterator last, size_type distance){
         destroy_all();
         if(capacity_ < distance){
@@ -851,7 +851,7 @@ public:
         construct(first, last, distance);
     }
 
-    template <class InputIterator>
+    template<class InputIterator, is_iterator<InputIterator> = 0>
     void assign (InputIterator first, InputIterator last){
         if(is_at_least_forward<InputIterator>::value){
             assign(first, last, std::distance(first,last));
@@ -1098,7 +1098,7 @@ public:
         return insert_impl(position, 1, std::move(val));
     }
 
-    template<class InputIterator, enable_if_t<is_at_least_input<InputIterator>::value, int> = 0>
+    template<class InputIterator, is_iterator<InputIterator> = 0>
     iterator insert(const_iterator position, InputIterator first, InputIterator last, size_type n){
         iterator pos; // position of first newly-created element
 
@@ -1179,7 +1179,7 @@ public:
         return pos;
     }
 
-    template<class InputIterator, enable_if_t<is_at_least_input<InputIterator>::value, int> = 0>
+    template<class InputIterator, is_iterator<InputIterator> = 0>
     iterator insert(const_iterator position, InputIterator first, InputIterator last){
         if(is_at_least_forward<InputIterator>::value){
             return insert(position, first, last, std::distance(first, last));

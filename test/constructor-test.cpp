@@ -33,5 +33,5 @@ TEST(ConstructorTest, fillConstructor) {
 TEST(ConstructorTest, rangeConstructor) {
     rdsl::devector<int> vec0(10,20);
 
-    //rdsl::devector<int> vec1(vec0.begin(), vec0.end());
+    rdsl::devector<int> vec1(vec0.begin(), vec0.end(), vec0.size());
 }
