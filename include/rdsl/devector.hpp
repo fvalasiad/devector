@@ -833,7 +833,7 @@ public:
     :devector(il.begin(), il.end(), il.size(), allocator, offset_by)
     {}
 
-    devector(std::initializer_list<value_type> il, const offset_by_type& offset_by = offset_by_type())
+    devector(std::initializer_list<value_type> il, const offset_by_type& offset_by)
     :devector(il.begin(), il.end(), il.size(), allocator_type(), offset_by)
     {}
 

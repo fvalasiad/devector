@@ -85,3 +85,15 @@ TEST(ConstructorTest, moveConstructor) {
     EXPECT_EQ(vec0.capacity(), 0);
     EXPECT_TRUE(vec0.empty());
 }
+
+TEST(ConstructorTest, ilConstructor) {
+    rdsl::devector<int> vec0{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    ASSERT_NE(vec0.data(), nullptr);
+    EXPECT_EQ(vec0.size(), 10);
+    EXPECT_GE(vec0.capacity(), 10);
+    ASSERT_FALSE(vec0.empty());
+
+    for(int i = 0; i < 10; i = i + 1){
+        ASSERT_EQ(i, vec0[i]);
+    }
+}
