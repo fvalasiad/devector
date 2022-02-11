@@ -453,7 +453,7 @@ public:
     }
 
 private:
-    size_type free_front() const noexcept{ return begin_ - iterator(arr); }
+    size_type free_front() const noexcept{ return begin_ - arr; }
     size_type free_back() const noexcept{ return arr + capacity_ - end_; }
     size_type free_total() const noexcept{ return capacity_ - size(); }
 
@@ -529,12 +529,12 @@ private:
     void reallocate(size_type new_capacity, size_type offset){
         memory_guard mem_guard(alloc, new_capacity);
 
-        buffer_guard buf_guard(alloc, mem_guard.arr + offset, mem_guard.arr + offset + size());
+        buffer_guard buf_guard(alloc, mem_guard.arr + offset);
      
         for(; begin_ != end_; ++begin_, ++buf_guard.end){
             al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*begin_));
-            al_traits<allocator_type>::destroy(alloc, begin_);
         }
+        destroy_all();
         deallocate();
 
         arr = mem_guard.arr;
@@ -547,7 +547,7 @@ private:
     }
 
     void reallocate(size_type new_capacity){
-        reallocate(new_capacity, offs.off_by(free_total()));
+        reallocate(new_capacity, offs.off_by(new_capacity - size()));
     }
 
     template<int step, int dec, class Pred>
@@ -595,9 +595,9 @@ private:
 
     size_type capacity_to_fit(size_type n) const noexcept{
         float temp_capacity = capacity_ ? capacity_ : 1;
-        do{
+        while(temp_capacity < n){
             temp_capacity = factor * temp_capacity;
-        }while(temp_capacity < n);
+        }
         return static_cast<size_type>(temp_capacity);
     }
 

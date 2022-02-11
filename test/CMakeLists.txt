@@ -7,9 +7,10 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 set(TESTS 
-constructor-test.cpp 
-operator-equals-test.cpp 
-iterator-test.cpp
+  constructor-test.cpp 
+  operator-equals-test.cpp 
+  iterator-test.cpp
+  capacity-test.cpp
 )
 
 add_executable(
