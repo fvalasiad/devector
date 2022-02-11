@@ -34,4 +34,22 @@ TEST(ConstructorTest, rangeConstructor) {
     rdsl::devector<int> vec0(10,20);
 
     rdsl::devector<int> vec1(vec0.begin(), vec0.end(), vec0.size());
+    EXPECT_NE(vec1.data(), nullptr);
+    EXPECT_EQ(vec1.size(), 10);
+    EXPECT_GE(vec1.capacity(), 10);
+    EXPECT_FALSE(vec0.empty());
+
+    for(const int& i: vec1){
+        EXPECT_EQ(i, 20);
+    }
+
+    rdsl::devector<int> vec2(vec1.begin(), vec1.end());
+    EXPECT_NE(vec2.data(), nullptr);
+    EXPECT_EQ(vec2.size(), 10);
+    EXPECT_GE(vec2.capacity(), 10);
+    EXPECT_FALSE(vec2.empty());
+
+    for(const int& i: vec2){
+        EXPECT_EQ(i, 20);
+    }
 }

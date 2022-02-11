@@ -453,9 +453,9 @@ public:
     }
 
 private:
-    size_type free_front() const noexcept{ return begin() - iterator(arr); }
-    size_type free_back() const noexcept{ return arr + capacity() - end(); }
-    size_type free_total() const noexcept{ return capacity() - size(); }
+    size_type free_front() const noexcept{ return begin_ - iterator(arr); }
+    size_type free_back() const noexcept{ return arr + capacity_ - end_; }
+    size_type free_total() const noexcept{ return capacity_ - size(); }
 
     pointer allocate_n(size_type n){
         auto ptr = alloc.allocate(n);
@@ -768,7 +768,7 @@ public:
             }
         }else{
             while(first != last){
-                push_back(first);
+                push_back(*first);
                 ++first;
             }
         }
