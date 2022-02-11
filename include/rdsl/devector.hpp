@@ -886,12 +886,11 @@ public:
             return *this;
         }
 
-        factor = x.factor;
         offs = x.offs;
 
         destroy_all();
 
-        if(al_traits<allocator_type>::propagate_on_container_copy_assignment && alloc != x.alloc){
+        if(al_traits<allocator_type>::propagate_on_container_copy_assignment::value && alloc != x.alloc){
             auto new_capacity = capacity_to_fit(x.size());
             
             deallocate();
@@ -914,12 +913,11 @@ public:
             return *this;
         }
 
-        factor = x.factor;
         offs = x.offs;
 
         destroy_all();
 
-        if(!al_traits<allocator_type>::propagate_on_container_move_assignment){
+        if(!al_traits<allocator_type>::propagate_on_container_move_assignment::value){
             if(alloc != x.alloc){
                 reallocate(capacity_to_fit(x.size()));
                 construct_move(x.begin(), x.end(), x.size());

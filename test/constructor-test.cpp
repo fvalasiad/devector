@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 #include "rdsl/devector.hpp"
-#include <vector>
 
 
 TEST(ConstructorTest, defaultConstructor) {
