@@ -6,7 +6,11 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-set(TESTS constructor-test.cpp operator-equals.cpp)
+set(TESTS 
+constructor-test.cpp 
+operator-equals-test.cpp 
+iterator-test.cpp
+)
 
 add_executable(
   testing
