@@ -29,8 +29,8 @@
  * A header-only continuous-storage double ended vector implementation for efficient insertions/removals at both the start & end of it.
  */
 
-#ifndef DEVECTOR_RDSL_2892021
-#define DEVECTOR_RDSL_2892021
+#ifndef DEVECTOR_RDSL_28092021
+#define DEVECTOR_RDSL_28092021
 
 #include <memory>
 #include <stdexcept>
@@ -265,9 +265,9 @@ private:
     }
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
-    void construct(InputIterator first, InputIterator last, size_type distance){
+    void construct(InputIterator first, size_type distance){
         begin_ = end_ = arr + offs.off_by(capacity_ - distance);
-        while(first != last){
+        while(distance--){
             al_traits<allocator_type>::construct(alloc, end_, *first);
             ++first;
             ++end_;
@@ -275,9 +275,9 @@ private:
     }
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
-    void construct_move(InputIterator first, InputIterator last, size_type distance){
+    void construct_move(InputIterator first, size_type distance){
         begin_ = end_ = arr + offs.off_by(capacity_ - distance);
-        while(first != last){
+        while(distance--){
             al_traits<allocator_type>::construct(alloc, end_, std::move_if_noexcept(*first));
             ++first;
             ++end_;
@@ -337,7 +337,7 @@ private:
     }
 
     template<class Pred>
-    void left_shift_while(pointer& new_begin, Pred pred){
+    void front_shift_while(pointer& new_begin, Pred pred){
         while(!empty() && pred()){
             al_traits<allocator_type>::construct(alloc, new_begin, std::move(*begin_));
             al_traits<allocator_type>::destroy(alloc, begin_);
@@ -347,7 +347,7 @@ private:
     }
 
     template<class Pred>
-    void right_shift_while(pointer& new_end, Pred pred){
+    void back_shift_while(pointer& new_end, Pred pred){
         while(!empty() && pred()){
             al_traits<allocator_type>::construct(alloc, new_end - 1, std::move(end_[-1]));
             al_traits<allocator_type>::destroy(alloc, end_ - 1);
@@ -363,29 +363,29 @@ private:
 
         if(!in_bounds(new_begin)){
             front_guard.guard(new_begin);
-            left_shift_while(front_guard.end, [this, pos]{ return begin_ != pos; });
+            front_shift_while(front_guard.end, [this, pos]{ return begin_ != pos; });
 
             free_space = front_guard.end;
 
             if(!in_bounds(front_guard.end + n)){
                 back_guard.guard(front_guard.end + n);
-                left_shift_while(back_guard.end, []{ return true; });
+                front_shift_while(back_guard.end, []{ return true; });
             }else{
                 back_guard.guard(new_end);
-                right_shift_while(back_guard.begin, [this, pos]{ return end_ != pos; });
+                back_shift_while(back_guard.begin, [this, pos]{ return end_ != pos; });
             }
         }else{
             back_guard.guard(new_end);
-            right_shift_while(back_guard.begin, [this, pos]{ return end_ != pos; });
+            back_shift_while(back_guard.begin, [this, pos]{ return end_ != pos; });
 
             free_space = back_guard.begin - n;
 
             if(!in_bounds(back_guard.begin - n - 1)){
                 front_guard.guard(back_guard.begin - n);
-                right_shift_while(front_guard.begin, []{ return true; });
+                back_shift_while(front_guard.begin, []{ return true; });
             }else{
                 front_guard.guard(new_begin);
-                left_shift_while(front_guard.end, [this, pos]{ return begin_ != pos; });
+                front_shift_while(front_guard.end, [this, pos]{ return begin_ != pos; });
             }
         }
 
@@ -535,7 +535,7 @@ public:
     {
        arr = allocate_n(distance);
        try{
-           construct(first, last, distance);
+           construct(first, distance);
        }catch(...){
            destroy_all();
            deallocate();
@@ -566,7 +566,7 @@ public:
             const size_type distance = std::distance(first, last);
             arr = allocate_n(distance);
             try{
-                construct(first, last, distance);
+                construct(first, distance);
             }catch(...){
                 destroy_all();
                 deallocate();
@@ -619,7 +619,7 @@ public:
             alloc = allocator;
 
             arr = allocate_n(x.size());
-            construct_move(x.begin(), x.end(), x.size());
+            construct_move(x.begin(), x.size());
         }
     }
 
@@ -649,18 +649,18 @@ public:
     }
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
-    void assign (InputIterator first, InputIterator last, size_type distance){
+    void assign (InputIterator first, size_type distance){
         destroy_all();
         if(capacity_ < distance){
             reallocate(capacity_to_fit(distance));
         }
-        construct(first, last, distance);
+        construct(first, distance);
     }
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
     void assign (InputIterator first, InputIterator last){
         if(is_at_least_forward<InputIterator>::value){
-            assign(first, last, std::distance(first,last));
+            assign(first, std::distance(first,last));
         }else{
             destroy_all();
             begin_ = end_ = arr + offs.off_by(free_total());
@@ -684,7 +684,7 @@ public:
         if(capacity_ < il.size()){
             reallocate(capacity_to_fit(il.size()));
         }
-        construct(il.begin(), il.end(), il.size());
+        construct(il.begin(), il.size());
     }
 
     devector& operator=(const devector& x){
@@ -709,7 +709,7 @@ public:
             }
         }
 
-        construct(x.begin(), x.end(), x.size());
+        construct(x.begin(), x.size());
 
         return *this;
     }
@@ -726,7 +726,7 @@ public:
         if(!al_traits<allocator_type>::propagate_on_container_move_assignment::value){
             if(alloc != x.alloc){
                 reallocate(capacity_to_fit(x.size()));
-                construct_move(x.begin(), x.end(), x.size());
+                construct_move(x.begin(), x.size());
             }else{
                 deallocate();
                 steal_ownership(x);
@@ -748,7 +748,7 @@ public:
             reallocate(capacity_to_fit(il.size()));
         }
 
-        construct(il.begin(), il.end(), il.size());
+        construct(il.begin(), il.size());
         return *this;
     }
 
@@ -909,14 +909,14 @@ public:
     }
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
-    iterator insert(const_iterator position, InputIterator first, InputIterator last, size_type n){
+    iterator insert(const_iterator position, InputIterator first, size_type n){
         return insert_impl(position, n, [first]() mutable{ return *first++; });
     }
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
     iterator insert(const_iterator position, InputIterator first, InputIterator last){
         if(is_at_least_forward<typename it_traits<InputIterator>::iterator_category>::value){
-            return insert(position, first, last, std::distance(first, last));
+            return insert(position, first, std::distance(first, last));
         }else{
             auto pos = position - 1;
             while(first != last){ // Seriously if you care about perfomance don't go for this case.
@@ -928,7 +928,7 @@ public:
     }
 
     iterator insert(const_iterator position, std::initializer_list<value_type> il){
-        return insert(position, il.begin(), il.end(), il.size());
+        return insert(position, il.begin(), il.size());
     }
 
     iterator erase(const_iterator first, const_iterator last){
@@ -1098,6 +1098,6 @@ template<class T, class Alloc, class OffsetByA, class OffsetByB>
 void swap(devector<T, Alloc, OffsetByA>& x, devector<T, Alloc, OffsetByB> y){
     x.swap(y);
 }
-}
+} //rdsl
 
 #endif
