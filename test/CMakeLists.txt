@@ -12,6 +12,7 @@ set(TESTS
   iterator-test.cpp
   capacity-test.cpp
   access-test.cpp
+  modifiers-test.cpp
 )
 
 add_executable(
