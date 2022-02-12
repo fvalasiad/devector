@@ -977,7 +977,7 @@ public:
             pos = back_guard.begin;
 
             while(end_ >= first){
-                al_traits<allocator_type>::destroy(alloc, end_[-1]);
+                al_traits<allocator_type>::destroy(alloc, end_ -1);
                 --end_;
             }
 
@@ -1021,34 +1021,25 @@ public:
     iterator emplace(const_iterator position, Args&&... args){
         iterator pos; // position of first newly-created element
 
-        if(n <= free_total()){
+        if(1 <= free_total()){
             if(position == begin_){
-                buffer_guard front_guard(alloc, begin_ - n);
-                while(n--){
-                    al_traits<allocator_type>::construct(alloc, front_guard.end, std::forward<Args>(args)...);
-                    ++front_guard.end;
-                }
-                begin_ = front_guard.begin;
-                front_guard.release();
+                al_traits<allocator_type>::construct(alloc, begin_ - 1, std::forward<Args>(args)...);
+                --begin_;
             }else if(position == end_){
-                while(n--){
-                    al_traits<allocator_type>::construct(alloc, end_, std::forward<Args>(args)...);
-                    ++end_;
-                }
+                al_traits<allocator_type>::construct(alloc, end_, std::forward<Args>(args)...);
+                ++end_;
             }else{
-                const pointer new_begin = arr + offs.off_by(free_total() - n);
-                const pointer new_end = new_begin + n + size();
+                const pointer new_begin = arr + offs.off_by(free_total() - 1);
+                const pointer new_end = new_begin + 1 + size();
 
-                const pointer free_space = shift(new_begin, new_end, position, n);
+                const pointer free_space = shift(new_begin, new_end, position, 1);
 
                 buffer_guard front_guard(alloc, new_begin, free_space);
-                buffer_guard back_guard(alloc, free_space + n, new_end);
+                buffer_guard back_guard(alloc, free_space + 1, new_end);
 
-                while(n--){
-                    al_traits<allocator_type>::construct(alloc, front_guard.end, std::forward<Args>(args)...);
-                    ++front_guard.end;
-                }
-
+                al_traits<allocator_type>::construct(alloc, front_guard.end, std::forward<Args>(args)...);
+                ++front_guard.end;
+                
                 begin_ = new_begin;
                 end_ = new_end;
 
@@ -1058,7 +1049,7 @@ public:
                 pos = free_space;
             }
         }else{
-            const size_type new_size = size() + n;
+            const size_type new_size = size() + 1;
 
             memory_guard mem_guard(alloc, capacity_to_fit(new_size));
             
@@ -1073,10 +1064,8 @@ public:
             }
 
             pos = buf_guard.end;
-            while(n--){
-                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::forward<Args>(args)...);
-                ++buf_guard.end;
-            }
+            al_traits<allocator_type>::construct(alloc, buf_guard.end, std::forward<Args>(args)...);
+            ++buf_guard.end;
             for(; it != end(); ++it){
                 al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
                 ++buf_guard.end;
