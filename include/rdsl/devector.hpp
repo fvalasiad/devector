@@ -112,13 +112,11 @@ private:
     static constexpr float factor = 1.6f; // new_capacity = capacity * factor
     offset_by_type offs;
     allocator_type alloc;
-
-    template<class it>
-    using it_traits = it_traits<it>;
-
+    
     class devector_iterator: public std::iterator<std::random_access_iterator_tag, value_type>{
         pointer ptr = nullptr;
 
+        friend class devector;
     public:
         devector_iterator() = default;
         devector_iterator(const devector_iterator&) = default;
@@ -233,6 +231,7 @@ private:
     class const_devector_iterator: public std::iterator<std::random_access_iterator_tag, value_type>{
         pointer ptr = nullptr;
 
+        friend class devector;
     public:
         const_devector_iterator() = default;
         const_devector_iterator(const const_devector_iterator&) = default;
@@ -515,7 +514,7 @@ private:
         x.capacity_ = 0;
     }
     
-    bool in_bounds(iterator it) const noexcept{
+    bool in_bounds(pointer it) const noexcept{
         return it >= begin_ && it < end_;
     }
 
@@ -551,7 +550,7 @@ private:
     }
 
     template<int step, int dec, class Pred>
-    void move_elements(iterator& dest, iterator& src, Pred pred){
+    void move_elements_while(pointer& src, pointer& dest, Pred pred){
         while(!empty() && !in_bounds(dest) && pred()){
             al_traits<allocator_type>::construct(alloc, dest, std::move(src[dec]));
             al_traits<allocator_type>::destroy(alloc, src + dec);
@@ -560,27 +559,37 @@ private:
         }
     }
 
-    iterator shift(iterator new_begin, iterator new_end, const_iterator pos, size_type n){
-        iterator free_space;
+    template<class Pred>
+    void left_shift_while(pointer& src, pointer& dest, Pred pred){
+        move_elements_while<1, 0>(dest, src, pred);
+    }
+
+    template<class Pred>
+    void right_shift_while(pointer& src, pointer& dest, Pred pred){
+        move_elements_while<-1, -1>(dest, src, pred);
+    }
+
+    pointer shift(pointer new_begin, pointer new_end, const_iterator pos, size_type n){
+        pointer free_space;
 
         buffer_guard front_guard(alloc, new_begin);
-        move_elements<1, 0>(front_guard.end, begin_, [this, pos]{ return begin_ != pos; });
+        left_shift_while(begin_, front_guard.end, [this, pos]{ return pos != begin_; });
 
         buffer_guard front_guard1(alloc, front_guard.end + n);
-        if(begin_ == pos){
+        if(pos == begin_){
             free_space = front_guard.end;
-            move_elements<1, 0>(front_guard1.end, begin_, []{ return true; });
+            left_shift_while(begin_, front_guard1.end, []{ return true; });
         }else{
             front_guard1.release();
         }
 
         buffer_guard back_guard(alloc, new_end);
-        move_elements<-1, -1>(back_guard.begin, end_, [this, pos]{ return end_ != pos; });
+        right_shift_while(end_, back_guard.begin, [this, pos]{ return pos != end_; });
 
         buffer_guard back_guard1(alloc, back_guard.begin - n);
-        if(end_ == pos){
+        if(pos == end_){
             free_space = back_guard.begin - n + 1;
-            move_elements<-1, -1>(back_guard1.begin, end_, []{ return true; });
+            right_shift_while(end_, back_guard1.begin, []{ return true; });
         }else{
             back_guard1.release();
         }
@@ -607,7 +616,7 @@ private:
 
         if(n <= free_total()){
             if(position == begin_){
-                buffer_guard front_guard(begin_ - n);
+                buffer_guard front_guard(alloc, begin_ - n);
                 while(n--){
                     al_traits<allocator_type>::construct(alloc, front_guard.end, std::forward<Value>(val)...);
                     ++front_guard.end;
@@ -620,10 +629,10 @@ private:
                     ++end_;
                 }
             }else{
-                const iterator new_begin = arr + offs.off_by(free_total() - n);
-                const iterator new_end = new_begin + n + size();
+                const pointer new_begin = arr + offs.off_by(free_total() - n);
+                const pointer new_end = new_begin + n + size();
 
-                const iterator free_space = shift(new_begin, new_end, position, n);
+                const pointer free_space = shift(new_begin, new_end, position, n);
 
                 buffer_guard front_guard(alloc, new_begin, free_space);
                 buffer_guard back_guard(alloc, free_space + n, new_end);
@@ -648,7 +657,7 @@ private:
             buffer_guard buf_guard(alloc, mem_guard.arr + front_space);
 
             auto it = begin();
-            for(; it != position; ++it){
+            for(; it != position.ptr; ++it){
                 al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
                 ++buf_guard.end;
             }
@@ -659,7 +668,7 @@ private:
                 ++buf_guard.end;
             }
             for(; it != end(); ++it){
-                al_traits<allocator_type>::construct(alloc, std::move_if_noexcept(*it));
+                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
             }
 
             destroy_all();
@@ -1037,7 +1046,9 @@ public:
     void push_back(const_reference val){
         if(!free_back()){
             const auto new_capacity = next_capacity();
-            reallocate(new_capacity, new_capacity - size() - offs.off_by(new_capacity - size()) + 1);
+            auto offset = offs.off_by(new_capacity - size());
+            offset -= offset == (new_capacity - size());
+            reallocate(new_capacity, offset);
         }
 
         al_traits<allocator_type>::construct(alloc, end_, val);
@@ -1047,7 +1058,9 @@ public:
     void push_back(value_type&& val){
         if(!free_back()){
             const auto new_capacity = next_capacity();
-            reallocate(new_capacity, new_capacity - size() - offs.off_by(new_capacity - size()) + 1);
+            auto offset = offs.off_by(new_capacity - size());
+            offset -= offset == (new_capacity - size());
+            reallocate(new_capacity, offset);
         }
 
         al_traits<allocator_type>::construct(alloc, end_, std::move(val));
@@ -1057,17 +1070,19 @@ public:
     void push_front(const_reference val){
         if(!free_front()){
             const auto new_capacity = next_capacity();
-            reallocate(new_capacity, offs.off_by(new_capacity - size()) + 1);
+            const auto offset = offs.off_by(new_capacity - size());
+            reallocate(new_capacity, offset + !offset);
         }
 
-        al_traits<allocator_type>::construct(alloc, begin_ - 1, val);
+        al_traits<allocator_type>::construct(alloc, begin_.ptr - 1, val);
         --begin_;
     }
 
     void push_front(value_type&& val){
         if(!free_front()){
             const auto new_capacity = next_capacity();
-            reallocate(new_capacity, offs.off_by(new_capacity - size()) + 1);
+            const auto offset = offs.off_by(new_capacity - size());
+            reallocate(new_capacity, offset + !offset);
         }
 
         al_traits<allocator_type>::construct(alloc, begin_ - 1, std::move(val));
@@ -1102,7 +1117,7 @@ public:
 
         if(n <= free_total()){
             if(position == begin_){
-                buffer_guard front_guard(begin_ - n);
+                buffer_guard front_guard(alloc, begin_ - n);
                 while(first != last){
                     al_traits<allocator_type>::construct(alloc, front_guard.end, *first);
                     ++front_guard.end;
@@ -1117,10 +1132,10 @@ public:
                     ++first;
                 }
             }else{
-                const iterator new_begin = arr + offs.off_by(free_total() - n);
-                const iterator new_end = new_begin + n + size();
+                const pointer new_begin = arr + offs.off_by(free_total() - n);
+                const pointer new_end = new_begin + n + size();
 
-                const iterator free_space = shift(new_begin, new_end, position, n);
+                const pointer free_space = shift(new_begin, new_end, position, n);
 
                 buffer_guard front_guard(alloc, new_begin, free_space);
                 buffer_guard back_guard(alloc, free_space + n, new_end);
@@ -1146,7 +1161,7 @@ public:
             buffer_guard buf_guard(alloc, mem_guard.arr + front_space);
 
             auto it = begin();
-            for(; it != position; ++it){
+            for(; position != it; ++it){
                 al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
                 ++buf_guard.end;
             }
@@ -1158,7 +1173,7 @@ public:
                 ++first;
             }
             for(; it != end(); ++it){
-                al_traits<allocator_type>::construct(alloc, std::move_if_noexcept(*it));
+                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
             }
 
             destroy_all();
@@ -1179,10 +1194,10 @@ public:
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
     iterator insert(const_iterator position, InputIterator first, InputIterator last){
-        if(is_at_least_forward<InputIterator>::value){
+        if(is_at_least_forward<typename it_traits<InputIterator>::iterator_category>::value){
             return insert(position, first, last, std::distance(first, last));
         }else{
-            iterator pos = position - 1;
+            auto pos = position - 1;
             while(first != last){ // Seriously if you care about perfomance don't go for this case.
                 pos = insert(pos + 1, *first);
                 ++first;
