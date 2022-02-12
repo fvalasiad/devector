@@ -1019,17 +1019,108 @@ public:
 
     template<class... Args>
     iterator emplace(const_iterator position, Args&&... args){
-        return insert_impl(position, 1, std::forward<Args>(args)...);
+        iterator pos; // position of first newly-created element
+
+        if(n <= free_total()){
+            if(position == begin_){
+                buffer_guard front_guard(alloc, begin_ - n);
+                while(n--){
+                    al_traits<allocator_type>::construct(alloc, front_guard.end, std::forward<Args>(args)...);
+                    ++front_guard.end;
+                }
+                begin_ = front_guard.begin;
+                front_guard.release();
+            }else if(position == end_){
+                while(n--){
+                    al_traits<allocator_type>::construct(alloc, end_, std::forward<Args>(args)...);
+                    ++end_;
+                }
+            }else{
+                const pointer new_begin = arr + offs.off_by(free_total() - n);
+                const pointer new_end = new_begin + n + size();
+
+                const pointer free_space = shift(new_begin, new_end, position, n);
+
+                buffer_guard front_guard(alloc, new_begin, free_space);
+                buffer_guard back_guard(alloc, free_space + n, new_end);
+
+                while(n--){
+                    al_traits<allocator_type>::construct(alloc, front_guard.end, std::forward<Args>(args)...);
+                    ++front_guard.end;
+                }
+
+                begin_ = new_begin;
+                end_ = new_end;
+
+                front_guard.release();
+                back_guard.release();
+
+                pos = free_space;
+            }
+        }else{
+            const size_type new_size = size() + n;
+
+            memory_guard mem_guard(alloc, capacity_to_fit(new_size));
+            
+            const size_type front_space = offs.off_by(mem_guard.capacity - new_size);
+
+            buffer_guard buf_guard(alloc, mem_guard.arr + front_space);
+
+            auto it = begin();
+            for(; it != position; ++it){
+                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
+                ++buf_guard.end;
+            }
+
+            pos = buf_guard.end;
+            while(n--){
+                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::forward<Args>(args)...);
+                ++buf_guard.end;
+            }
+            for(; it != end(); ++it){
+                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
+                ++buf_guard.end;
+            }
+
+            destroy_all();
+            deallocate();
+
+            arr = mem_guard.arr;
+            capacity_ = mem_guard.capacity;
+
+            begin_ = buf_guard.begin;
+            end_ = buf_guard.end;
+
+            buf_guard.release();
+            mem_guard.release();
+        }
+
+        return pos;
     }
 
     template<class... Args>
     iterator emplace_back(Args&&... args){
-        return insert_impl(end_, 1, std::forward<Args>(args)...);
+        if(!free_back()){
+            const auto new_capacity = next_capacity();
+            auto offset = offs.off_by(new_capacity - size());
+            offset -= offset == (new_capacity - size());
+            reallocate(new_capacity, offset);
+        }
+
+        al_traits<allocator_type>::construct(alloc, end_, std::forward<Args>(args)...);
+        return end_++;
     }
 
     template<class... Args>
     iterator emplace_front(Args&&... args){
-        return insert_impl(begin_, 1, std::forward<Args>(args)...);
+        if(!free_front()){
+            const auto new_capacity = next_capacity();
+            const auto offset = offs.off_by(new_capacity - size());
+            reallocate(new_capacity, offset + !offset);
+        }
+
+        al_traits<allocator_type>::construct(alloc, begin_.ptr - 1, std::forward<Args>(args)...);
+        return begin_++;
     }
 
     allocator_type get_allocator() const noexcept{
