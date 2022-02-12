@@ -102,6 +102,10 @@ struct devector{
     using const_pointer = typename al_traits<allocator_type>::const_pointer;
     using size_type = typename al_traits<allocator_type>::size_type;
     using difference_type = typename al_traits<allocator_type>::difference_type;
+    using iterator = pointer;
+    using const_iterator = const_pointer;
+    using reverse_iterator = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 private:
     pointer arr;
@@ -113,242 +117,29 @@ private:
     offset_by_type offs;
     allocator_type alloc;
     
-    class devector_iterator: public std::iterator<std::random_access_iterator_tag, value_type>{
-        pointer ptr = nullptr;
 
-        friend class devector;
-    public:
-        devector_iterator() = default;
-        devector_iterator(const devector_iterator&) = default;
-        devector_iterator& operator=(const devector_iterator&) = default;
-        ~devector_iterator() = default;
-
-        devector_iterator(pointer ptr){
-            this->ptr = ptr;
-        }
-
-        bool operator==(const devector_iterator& other) const noexcept{
-            return ptr == other.ptr;
-        }
-
-        bool operator!=(const devector_iterator& other) const noexcept{
-            return ptr != other.ptr;
-        }
-
-        reference operator*() noexcept{
-            return *ptr;
-        }
-
-        const_reference operator*() const noexcept{
-            return *ptr;
-        }
-
-        pointer operator->() noexcept{
-            return ptr;
-        }
-
-        const_pointer operator->() const noexcept{
-            return ptr;
-        }
-
-        devector_iterator& operator++() noexcept{
-            ++ptr;
-            return *this;
-        }
-
-        devector_iterator operator++(int) noexcept{
-            return devector_iterator(ptr++);
-        }
-
-        devector_iterator& operator--() noexcept{
-            --ptr;
-            return *this;
-        }
-
-        devector_iterator operator--(int) noexcept{
-            return devector_iterator(ptr--);
-        }
-
-        difference_type operator+(devector_iterator it) const noexcept{
-            return ptr + it.ptr;
-        }
-
-        devector_iterator operator+(size_type i) const noexcept{
-            return devector_iterator(ptr + i);
-        }
-
-        friend devector_iterator operator+(size_type i, const devector_iterator& it) noexcept{
-            return devector_iterator(i + it.ptr);
-        }
-
-        difference_type operator-(devector_iterator it) const noexcept{
-            return ptr - it.ptr;
-        }
-
-        devector_iterator operator-(size_type i) const noexcept{
-            return devector_iterator(ptr - i);
-        }
-
-        friend devector_iterator operator-(size_type i, const devector_iterator& it) noexcept{
-            return devector_iterator(i - it.ptr);
-        }
-
-        bool operator<(const devector_iterator& it) const noexcept{
-            return ptr < it.ptr;
-        }
-
-        bool operator>(const devector_iterator& it) const noexcept{
-            return ptr > it.ptr;
-        }
-
-        bool operator<=(const devector_iterator& it) const noexcept{
-            return ptr <= it.ptr;
-        }
-
-        bool operator>=(const devector_iterator& it) const noexcept{
-            return ptr >= it.ptr;
-        }
-
-        devector_iterator& operator+=(size_type i) noexcept{
-            ptr += i;
-            return *this;
-        }
-
-        devector_iterator& operator-=(size_type i) noexcept{
-            ptr -= i;
-            return *this;
-        }
-
-        reference operator[](size_type index) noexcept{
-            return *(ptr + index);
-        }
-
-        const_reference operator[](size_type index) const noexcept{
-            return *(ptr + index);
-        }
-    };
-    
-    class const_devector_iterator: public std::iterator<std::random_access_iterator_tag, value_type>{
-        pointer ptr = nullptr;
-
-        friend class devector;
-    public:
-        const_devector_iterator() = default;
-        const_devector_iterator(const const_devector_iterator&) = default;
-        const_devector_iterator& operator=(const const_devector_iterator&) = default;
-        ~const_devector_iterator() = default;
-
-        const_devector_iterator(pointer ptr){
-            this->ptr = ptr;
-        }
-
-        const_devector_iterator(const devector_iterator& it){
-            this->ptr = it.ptr;
-        }
-
-        const_devector_iterator& operator=(const devector_iterator& it){
-            this->ptr = it.ptr;
-        }
-
-        bool operator==(const const_devector_iterator& other) const noexcept{
-            return ptr == other.ptr;
-        }
-
-        bool operator!=(const const_devector_iterator& other) const noexcept{
-            return !(*this == other);
-        }
-
-        const_reference operator*() const noexcept{
-            return *ptr;
-        }
-
-        const_pointer operator->() const noexcept{
-            return ptr;
-        }
-
-        const_devector_iterator& operator++() noexcept{
-            ++ptr;
-            return *this;
-        }
-
-        const_devector_iterator operator++(int) noexcept{
-            return const_devector_iterator(ptr++);
-        }
-
-        const_devector_iterator& operator--() noexcept{
-            --ptr;
-            return *this;
-        }
-
-        const_devector_iterator operator--(int) noexcept{
-            return const_devector_iterator(ptr--);
-        }
-
-        difference_type operator+(const_devector_iterator it) const noexcept{
-            return ptr + it.ptr;
-        }
-
-        const_devector_iterator operator+(size_type i) const noexcept{
-            return const_devector_iterator(ptr + i);
-        }
-
-        friend const_devector_iterator operator+(size_type i, const const_devector_iterator& it) noexcept{
-            return const_devector_iterator(i + it.ptr);
-        }
-
-        difference_type operator-(const_devector_iterator it) const noexcept{
-            return ptr - it.ptr;
-        }
-
-        const_devector_iterator operator-(size_type i) const noexcept{
-            return const_devector_iterator(ptr - i);
-        }
-
-        friend const_devector_iterator operator-(size_type i, const const_devector_iterator& it) noexcept{
-            return const_devector_iterator(i - it.ptr);
-        }
-
-        bool operator<(const const_devector_iterator& it) const noexcept{
-            return ptr < it.ptr;
-        }
-
-        bool operator>(const const_devector_iterator& it) const noexcept{
-            return ptr > it.ptr;
-        }
-
-        bool operator<=(const const_devector_iterator& it) const noexcept{
-            return ptr <= it.ptr;
-        }
-
-        bool operator>=(const const_devector_iterator& it) const noexcept{
-            return ptr >= it.ptr;
-        }
-
-        const_devector_iterator& operator+=(size_type i) noexcept{
-            ptr += i;
-            return *this;
-        }
-
-        const_devector_iterator& operator-=(size_type i) noexcept{
-            ptr -= i;
-            return *this;
-        }
-
-        const_reference operator[](size_type index) const noexcept{
-            return *(ptr + index);
-        }
-    };
-    
     struct buffer_guard{
         pointer begin;
         pointer end;
         allocator_type& alloc;
 
         buffer_guard(allocator_type& alloc, pointer begin, pointer end)
-        : alloc(alloc), begin(begin), end(end) {}
+        :alloc(alloc), begin(begin), end(end) {}
 
         buffer_guard(allocator_type& alloc, pointer start)
-        : alloc(alloc), begin(start), end(start) {}
+        :alloc(alloc), begin(start), end(start) {}
+
+        buffer_guard(allocator_type& alloc)
+        :alloc(alloc), begin(nullptr), end(nullptr) {}
+
+        void guard(pointer begin, pointer end){
+            this->begin = begin;
+            this->end = end;
+        }
+
+        void guard(pointer start){
+            begin = end = start;
+        }
 
         void release(){
             begin = end;
@@ -382,10 +173,6 @@ private:
     };
 
 public:
-    using iterator = devector_iterator;
-    using const_iterator = const_devector_iterator;
-    using reverse_iterator = std::reverse_iterator<iterator>;
-    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     size_type capacity() const noexcept{
         return capacity_;
@@ -549,55 +336,61 @@ private:
         reallocate(new_capacity, offs.off_by(new_capacity - size()));
     }
 
-    template<int step, int dec, class Pred>
-    void move_elements_while(pointer& src, pointer& dest, Pred pred){
-        while(!empty() && !in_bounds(dest) && pred()){
-            al_traits<allocator_type>::construct(alloc, dest, std::move(src[dec]));
-            al_traits<allocator_type>::destroy(alloc, src + dec);
-            src = src + step;
-            dest = dest + step;
+    template<class Pred>
+    void left_shift_while(pointer& new_begin, Pred pred){
+        while(!empty() && pred()){
+            al_traits<allocator_type>::construct(alloc, new_begin, std::move(*begin_));
+            al_traits<allocator_type>::destroy(alloc, begin_);
+            ++begin_;
+            ++new_begin;
         }
     }
 
     template<class Pred>
-    void left_shift_while(pointer& src, pointer& dest, Pred pred){
-        move_elements_while<1, 0>(dest, src, pred);
-    }
-
-    template<class Pred>
-    void right_shift_while(pointer& src, pointer& dest, Pred pred){
-        move_elements_while<-1, -1>(dest, src, pred);
+    void right_shift_while(pointer& new_end, Pred pred){
+        while(!empty() && pred()){
+            al_traits<allocator_type>::construct(alloc, new_end - 1, std::move(end_[-1]));
+            al_traits<allocator_type>::destroy(alloc, end_ - 1);
+            --end_;
+            --new_end;
+        }
     }
 
     pointer shift(pointer new_begin, pointer new_end, const_iterator pos, size_type n){
         pointer free_space;
+        buffer_guard front_guard(alloc);
+        buffer_guard back_guard(alloc);
 
-        buffer_guard front_guard(alloc, new_begin);
-        left_shift_while(begin_, front_guard.end, [this, pos]{ return pos != begin_; });
+        if(!in_bounds(new_begin)){
+            front_guard.guard(new_begin);
+            left_shift_while(front_guard.end, [this, pos]{ return begin_ != pos; });
 
-        buffer_guard front_guard1(alloc, front_guard.end + n);
-        if(pos == begin_){
             free_space = front_guard.end;
-            left_shift_while(begin_, front_guard1.end, []{ return true; });
-        }else{
-            front_guard1.release();
-        }
 
-        buffer_guard back_guard(alloc, new_end);
-        right_shift_while(end_, back_guard.begin, [this, pos]{ return pos != end_; });
-
-        buffer_guard back_guard1(alloc, back_guard.begin - n);
-        if(pos == end_){
-            free_space = back_guard.begin - n + 1;
-            right_shift_while(end_, back_guard1.begin, []{ return true; });
+            if(!in_bounds(front_guard.end + n)){
+                back_guard.guard(front_guard.end + n);
+                left_shift_while(back_guard.end, []{ return true; });
+            }else{
+                back_guard.guard(new_end);
+                right_shift_while(back_guard.begin, [this, pos]{ return end_ != pos; });
+            }
         }else{
-            back_guard1.release();
+            back_guard.guard(new_end);
+            right_shift_while(back_guard.begin, [this, pos]{ return end_ != pos; });
+
+            free_space = back_guard.begin - n;
+
+            if(!in_bounds(back_guard.begin - n - 1)){
+                front_guard.guard(back_guard.begin - n);
+                right_shift_while(front_guard.begin, []{ return true; });
+            }else{
+                front_guard.guard(new_begin);
+                left_shift_while(front_guard.end, [this, pos]{ return begin_ != pos; });
+            }
         }
 
         front_guard.release();
-        front_guard1.release();
         back_guard.release();
-        back_guard1.release();
 
         return free_space;
     }
@@ -610,22 +403,22 @@ private:
         return static_cast<size_type>(temp_capacity);
     }
 
-    template<class... Value>
-    iterator insert_impl(const_iterator position, size_type n, Value&&... val){
+    template<class Generator>
+    iterator insert_impl(const_iterator position, size_type n, Generator gen){
         iterator pos; // position of first newly-created element
 
         if(n <= free_total()){
             if(position == begin_){
                 buffer_guard front_guard(alloc, begin_ - n);
                 while(n--){
-                    al_traits<allocator_type>::construct(alloc, front_guard.end, std::forward<Value>(val)...);
+                    al_traits<allocator_type>::construct(alloc, front_guard.end, gen());
                     ++front_guard.end;
                 }
                 begin_ = front_guard.begin;
                 front_guard.release();
             }else if(position == end_){
                 while(n--){
-                    al_traits<allocator_type>::construct(alloc, end_, std::forward<Value>(val)...);
+                    al_traits<allocator_type>::construct(alloc, end_, gen());
                     ++end_;
                 }
             }else{
@@ -637,8 +430,11 @@ private:
                 buffer_guard front_guard(alloc, new_begin, free_space);
                 buffer_guard back_guard(alloc, free_space + n, new_end);
 
+                begin_ = new_begin;
+                end_ = new_end;
+
                 while(n--){
-                    al_traits<allocator_type>::construct(alloc, front_guard.end, std::forward<Value>(val)...);
+                    al_traits<allocator_type>::construct(alloc, front_guard.end, gen());
                     ++front_guard.end;
                 }
 
@@ -657,18 +453,19 @@ private:
             buffer_guard buf_guard(alloc, mem_guard.arr + front_space);
 
             auto it = begin();
-            for(; it != position.ptr; ++it){
+            for(; it != position; ++it){
                 al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
                 ++buf_guard.end;
             }
 
             pos = buf_guard.end;
             while(n--){
-                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::forward<Value>(val)...);
+                al_traits<allocator_type>::construct(alloc, buf_guard.end, gen());
                 ++buf_guard.end;
             }
             for(; it != end(); ++it){
                 al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
+                ++buf_guard.end;
             }
 
             destroy_all();
@@ -1100,96 +897,20 @@ public:
     }
 
     iterator insert(const_iterator position, size_type n, const_reference val){
-        return insert_impl(position, n, val);
+        return insert_impl(position, n, [&val]()->const_reference{ return val; });
     }
 
     iterator insert(const_iterator position, const_reference val){
-        return insert_impl(position, 1, val);
+        return insert(position, 1, val);
     }
 
     iterator insert(const_iterator position, value_type&& val){
-        return insert_impl(position, 1, std::move(val));
+        return insert_impl(position, 1, [&val]{ return std::move(val); });
     }
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
     iterator insert(const_iterator position, InputIterator first, InputIterator last, size_type n){
-        iterator pos; // position of first newly-created element
-
-        if(n <= free_total()){
-            if(position == begin_){
-                buffer_guard front_guard(alloc, begin_ - n);
-                while(first != last){
-                    al_traits<allocator_type>::construct(alloc, front_guard.end, *first);
-                    ++front_guard.end;
-                    ++first;
-                }
-                begin_ = front_guard.begin;
-                front_guard.release();
-            }else if(position == end_){
-                while(first != last){
-                    al_traits<allocator_type>::construct(alloc, end_, *first);
-                    ++end_;
-                    ++first;
-                }
-            }else{
-                const pointer new_begin = arr + offs.off_by(free_total() - n);
-                const pointer new_end = new_begin + n + size();
-
-                const pointer free_space = shift(new_begin, new_end, position, n);
-
-                buffer_guard front_guard(alloc, new_begin, free_space);
-                buffer_guard back_guard(alloc, free_space + n, new_end);
-
-                while(first != last){
-                    al_traits<allocator_type>::construct(alloc, front_guard.end, *first);
-                    ++front_guard.end;
-                    ++first;
-                }
-
-                front_guard.release();
-                back_guard.release();
-
-                pos = free_space;
-            }
-        }else{
-            const size_type new_size = size() + n;
-
-            memory_guard mem_guard(alloc, capacity_to_fit(new_size));
-            
-            const size_type front_space = offs.off_by(mem_guard.capacity - new_size);
-
-            buffer_guard buf_guard(alloc, mem_guard.arr + front_space);
-
-            auto it = begin();
-            for(; position != it; ++it){
-                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
-                ++buf_guard.end;
-            }
-
-            pos = buf_guard.end;
-            while(first != last){
-                al_traits<allocator_type>::construct(alloc, buf_guard.end, *first);
-                ++buf_guard.end;
-                ++first;
-            }
-            for(; it != end(); ++it){
-                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
-            }
-
-            destroy_all();
-            deallocate();
-
-            arr = mem_guard.arr;
-            capacity_ = mem_guard.capacity;
-
-            begin_ = buf_guard.begin;
-            end_ = buf_guard.end;
-
-            buf_guard.release();
-            mem_guard.release();
-        }
-
-        return pos;
+        return insert_impl(position, n, [first]() mutable{ return *first++; });
     }
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
