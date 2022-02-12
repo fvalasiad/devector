@@ -430,13 +430,13 @@ private:
                 buffer_guard front_guard(alloc, new_begin, free_space);
                 buffer_guard back_guard(alloc, free_space + n, new_end);
 
-                begin_ = new_begin;
-                end_ = new_end;
-
                 while(n--){
                     al_traits<allocator_type>::construct(alloc, front_guard.end, gen());
                     ++front_guard.end;
                 }
+
+                begin_ = new_begin;
+                end_ = new_end;
 
                 front_guard.release();
                 back_guard.release();
