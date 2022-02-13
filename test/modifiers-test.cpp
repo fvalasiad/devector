@@ -1,13 +1,12 @@
 #include <gtest/gtest.h>
 #include "rdsl/devector.hpp"
-#include <vector>
 
 TEST(ModifiersTest, AssignTest) {
     rdsl::devector<int> vec(10,20);
     
     rdsl::devector<int> vec1;
 
-    vec1.assign(vec.begin(), vec.end(), vec.size());
+    vec1.assign(vec.begin(), vec.size());
     EXPECT_EQ(vec1.size(), 10);
     EXPECT_FALSE(vec1.empty());
     EXPECT_GE(vec1.capacity(), 10);
@@ -89,16 +88,32 @@ TEST(ModifiersTest, InsertEraseTest) {
 
     rdsl::devector<int> temp{72,53,4324,653,123};
     
-    vec.insert(vec.begin() + 4, temp.begin(), temp.end(), temp.size());
+    vec.insert(vec.begin() + 4, temp.begin(), temp.size());
     EXPECT_EQ(vec.size(), 29);
     EXPECT_FALSE(vec.empty());
     EXPECT_GE(vec.capacity(), 29);
 
-    rdsl::devector<int> result{23, 54, 94, 432, 72, 53, 4324, 654, 123, 3, 65, 543, 13, 5432, 954,4321};
-    for(int i = 0; i < 16; i = i + 1){
+    vec.insert(vec.begin() + 9, 3, 2);
+    EXPECT_EQ(vec.size(), 32);
+    EXPECT_FALSE(vec.empty());
+    EXPECT_GE(vec.capacity(), 32);
+
+    rdsl::devector<int> result{23, 54, 94, 432, 72, 53, 4324, 653, 123, 2, 2, 2, 3, 65, 543, 13, 5432, 954,4321};
+    for(int i = 0; i < 19; i = i + 1){
         EXPECT_EQ(vec[i], result[i]);
     }
-    for(int i = 16; i < 29; i = i + 1){
+    for(int i = 19; i < 32; i = i + 1){
         EXPECT_EQ(vec[i], 20);
     }
+
+    vec.erase(vec.begin());
+    vec.erase(vec.end() - 1);
+    vec.erase(vec.begin() + 3, vec.end());
+    EXPECT_EQ(vec.size(), 3);
+    EXPECT_FALSE(vec.empty());
+    EXPECT_GE(vec.capacity(), 3);
+
+    EXPECT_EQ(vec[0], 54);
+    EXPECT_EQ(vec[1], 94);
+    EXPECT_EQ(vec[2], 432);
 }
