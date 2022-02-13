@@ -402,6 +402,12 @@ private:
         return free_space;
     }
 
+    /**
+     * @brief merges two ranges into one, destroying any elements between them.
+     * Also shifts the elements in case [new_begin, new_end) isn't inside [begin, end). 
+     * 
+     * @return pointer 
+     */
     pointer integrate(pointer new_begin, pointer new_end, const_iterator pos, size_type n){
         pointer ret = new_begin + (pos - begin_);
         buffer_guard front_guard(alloc);
@@ -482,22 +488,22 @@ private:
         return static_cast<size_type>(temp_capacity);
     }
 
-    template<class Generator>
-    iterator insert_impl(const_iterator position, size_type n, Generator gen){
+    template<class Insert>
+    iterator insert_impl(const_iterator position, size_type n, Insert ins){
         iterator pos; // position of first newly-created element
 
         if(n <= free_total()){
             if(position == begin_){
                 buffer_guard front_guard(alloc, begin_ - n);
                 while(n--){
-                    al_traits<allocator_type>::construct(alloc, front_guard.end, gen());
+                    ins(front_guard.end);
                     ++front_guard.end;
                 }
                 begin_ = front_guard.begin;
                 front_guard.release();
             }else if(position == end_){
                 while(n--){
-                    al_traits<allocator_type>::construct(alloc, end_, gen());
+                    ins(end_);
                     ++end_;
                 }
             }else{
@@ -510,7 +516,7 @@ private:
                 buffer_guard back_guard(alloc, free_space + n, new_end);
 
                 while(n--){
-                    al_traits<allocator_type>::construct(alloc, front_guard.end, gen());
+                    ins(front_guard.end);
                     ++front_guard.end;
                 }
 
@@ -539,7 +545,7 @@ private:
 
             pos = buf_guard.end;
             while(n--){
-                al_traits<allocator_type>::construct(alloc, buf_guard.end, gen());
+                ins(buf_guard.end);
                 ++buf_guard.end;
             }
             for(; it < end(); ++it){
@@ -974,7 +980,9 @@ public:
     }
 
     iterator insert(const_iterator position, size_type n, const_reference val){
-        return insert_impl(position, n, [&val]()->const_reference{ return val; });
+        return insert_impl(position, n, [&val, this](pointer p){
+            al_traits<allocator_type>::construct(alloc, p, val);
+        });
     }
 
     iterator insert(const_iterator position, const_reference val){
@@ -982,12 +990,16 @@ public:
     }
 
     iterator insert(const_iterator position, value_type&& val){
-        return insert_impl(position, 1, [&val]{ return std::move(val); });
+        return insert_impl(position, 1, [&val, this](pointer p) mutable{
+            al_traits<allocator_type>::construct(alloc, p, std::move(val));
+        });
     }
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
     iterator insert(const_iterator position, InputIterator first, size_type n){
-        return insert_impl(position, n, [first]() mutable{ return *first++; });
+        return insert_impl(position, n, [first, this](pointer p) mutable{
+            al_traits<allocator_type>::construct(alloc, p, *first++);
+        });
     }
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
@@ -1054,72 +1066,9 @@ public:
 
     template<class... Args>
     iterator emplace(const_iterator position, Args&&... args){
-        iterator pos; // position of first newly-created element
-
-        if(1 <= free_total()){
-            if(position == begin_){
-                al_traits<allocator_type>::construct(alloc, begin_ - 1, std::forward<Args>(args)...);
-                --begin_;
-            }else if(position == end_){
-                al_traits<allocator_type>::construct(alloc, end_, std::forward<Args>(args)...);
-                ++end_;
-            }else{
-                const pointer new_begin = arr + offs.off_by(free_total() - 1);
-                const pointer new_end = new_begin + 1 + size();
-
-                const pointer free_space = segregate(new_begin, new_end, position, 1);
-
-                buffer_guard front_guard(alloc, new_begin, free_space);
-                buffer_guard back_guard(alloc, free_space + 1, new_end);
-
-                al_traits<allocator_type>::construct(alloc, front_guard.end, std::forward<Args>(args)...);
-                ++front_guard.end;
-                
-                begin_ = new_begin;
-                end_ = new_end;
-
-                front_guard.release();
-                back_guard.release();
-
-                pos = free_space;
-            }
-        }else{
-            const size_type new_size = size() + 1;
-
-            memory_guard mem_guard(alloc, capacity_to_fit(new_size));
-            
-            const size_type front_space = offs.off_by(mem_guard.capacity - new_size);
-
-            buffer_guard buf_guard(alloc, mem_guard.arr + front_space);
-
-            auto it = begin();
-            for(; it != position; ++it){
-                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
-                ++buf_guard.end;
-            }
-
-            pos = buf_guard.end;
-            al_traits<allocator_type>::construct(alloc, buf_guard.end, std::forward<Args>(args)...);
-            ++buf_guard.end;
-            for(; it != end(); ++it){
-                al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
-                ++buf_guard.end;
-            }
-
-            destroy_all();
-            deallocate();
-
-            arr = mem_guard.arr;
-            capacity_ = mem_guard.capacity;
-
-            begin_ = buf_guard.begin;
-            end_ = buf_guard.end;
-
-            buf_guard.release();
-            mem_guard.release();
-        }
-
-        return pos;
+        return insert_impl(position, 1, [&](pointer p){
+            al_traits<allocator_type>::construct(alloc, p, std::forward<Args>(args)...);
+        });
     }
 
     template<class... Args>
