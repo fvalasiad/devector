@@ -356,14 +356,21 @@ private:
         }
     }
 
-    pointer shift(pointer new_begin, pointer new_end, const_iterator pos, size_type n){
+    /**
+     * @brief Segregates the container into two parts with a gap of 'n'
+     * elements starting at 'pos' while also shifting the container to 
+     * the desired position according to *offset*.
+     * 
+     * @return pointer to the first element of the 'n' element gap. 
+     */
+    pointer segregate(pointer new_begin, pointer new_end, const_iterator pos, size_type n){
         pointer free_space;
         buffer_guard front_guard(alloc);
         buffer_guard back_guard(alloc);
 
         if(!in_bounds(new_begin)){
             front_guard.guard(new_begin);
-            front_shift_while(front_guard.end, [this, pos]{ return begin_ != pos; });
+            front_shift_while(front_guard.end, [this, pos]{ return begin_ < pos; });
 
             free_space = front_guard.end;
 
@@ -372,11 +379,11 @@ private:
                 front_shift_while(back_guard.end, []{ return true; });
             }else{
                 back_guard.guard(new_end);
-                back_shift_while(back_guard.begin, [this, pos]{ return end_ != pos; });
+                back_shift_while(back_guard.begin, [this, pos]{ return end_ > pos; });
             }
         }else{
             back_guard.guard(new_end);
-            back_shift_while(back_guard.begin, [this, pos]{ return end_ != pos; });
+            back_shift_while(back_guard.begin, [this, pos]{ return end_ > pos; });
 
             free_space = back_guard.begin - n;
 
@@ -385,7 +392,7 @@ private:
                 back_shift_while(front_guard.begin, []{ return true; });
             }else{
                 front_guard.guard(new_begin);
-                front_shift_while(front_guard.end, [this, pos]{ return begin_ != pos; });
+                front_shift_while(front_guard.end, [this, pos]{ return begin_ < pos; });
             }
         }
 
@@ -393,6 +400,78 @@ private:
         back_guard.release();
 
         return free_space;
+    }
+
+    pointer integrate(pointer new_begin, pointer new_end, const_iterator pos, size_type n){
+        pointer ret = new_begin + (pos - begin_);
+        buffer_guard front_guard(alloc);
+        buffer_guard back_guard(alloc);
+        
+        if(!in_bounds(new_begin)){
+            front_guard.guard(new_begin);
+
+            while(begin_ < pos){
+                al_traits<allocator_type>::construct(alloc, front_guard.end, *begin_);
+                ++front_guard.end;
+                pop_front();
+            }
+
+            while(n--){
+                pop_front();
+            }
+
+            while(!empty()){
+                al_traits<allocator_type>::construct(alloc, front_guard.end, *begin_);
+                ++front_guard.end;
+                pop_front();
+            }
+        }else if(!in_bounds(new_end)){
+            back_guard.guard(new_end);
+
+            while(end_ < pos + n){
+                al_traits<allocator_type>::construct(alloc, back_guard.begin - 1, end_[-1]);
+                --back_guard.begin;
+                pop_back();
+            }
+
+            while(n--){
+                pop_back();
+            }
+
+            while(!empty()){
+                al_traits<allocator_type>::construct(alloc, back_guard.begin - 1, end_[-1]);
+                --back_guard.begin;
+                pop_back();
+            }
+        }else{
+            auto const front_shift = new_begin - begin_;
+            auto const back_shift = end_ - new_end;
+
+            while(begin_ < pos){
+                begin_[front_shift] = std::move(*begin_);
+                pop_front();
+            }
+
+            while(begin_ < new_begin){
+                pop_front();
+            }
+
+            while(end_ > pos + n){
+                end_[-back_shift - 1] = std::move(end_[-1]);
+                pop_back();
+            }
+
+            while(end_ > new_end){
+                pop_back();
+            }
+        }
+
+        begin_ = new_begin;
+        end_ = new_end;
+        front_guard.release();
+        back_guard.release();
+
+        return ret;
     }
 
     size_type capacity_to_fit(size_type n) const noexcept{
@@ -425,7 +504,7 @@ private:
                 const pointer new_begin = arr + offs.off_by(free_total() - n);
                 const pointer new_end = new_begin + n + size();
 
-                const pointer free_space = shift(new_begin, new_end, position, n);
+                const pointer free_space = segregate(new_begin, new_end, position, n);
 
                 buffer_guard front_guard(alloc, new_begin, free_space);
                 buffer_guard back_guard(alloc, free_space + n, new_end);
@@ -453,7 +532,7 @@ private:
             buffer_guard buf_guard(alloc, mem_guard.arr + front_space);
 
             auto it = begin();
-            for(; it != position; ++it){
+            for(; it < position; ++it){
                 al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
                 ++buf_guard.end;
             }
@@ -463,7 +542,7 @@ private:
                 al_traits<allocator_type>::construct(alloc, buf_guard.end, gen());
                 ++buf_guard.end;
             }
-            for(; it != end(); ++it){
+            for(; it < end(); ++it){
                 al_traits<allocator_type>::construct(alloc, buf_guard.end, std::move_if_noexcept(*it));
                 ++buf_guard.end;
             }
@@ -779,8 +858,7 @@ public:
     void resize(size_type n, const_reference val = value_type()){
         resize_back(n, val);
     }
-
-    
+  
     void reserve(size_type n){
         if(n > capacity_){
             reallocate(n);
@@ -838,7 +916,6 @@ public:
     const_pointer data() const noexcept{
         return arr;
     }
-
 
     void push_back(const_reference val){
         if(!free_back()){
@@ -932,70 +1009,28 @@ public:
     }
 
     iterator erase(const_iterator first, const_iterator last){
-        const size_type n = last - first;
-
-        const iterator new_begin = arr + offs.off_by(free_total() - n);
-        const iterator new_end = new_begin + size() - n;
-
         iterator pos;
 
-        buffer_guard front_guard(alloc, new_begin);
-
-        while(!in_bounds(front_guard.end) && begin_ != first){
-            al_traits<allocator_type>::construct(alloc, front_guard.end, std::move(*begin_));
-            al_traits<allocator_type>::destroy(alloc, begin_);
-            ++begin_;
-            ++front_guard.end;
-        }
-
-        if(begin_ == first){
-            pos = front_guard.end;
-
-            while(begin_ != last){
+        if(first == begin_){
+            while(begin_ < last){
                 al_traits<allocator_type>::destroy(alloc, begin_);
                 ++begin_;
             }
-
-            while(!empty() && !in_bounds(front_guard.end)){
-                al_traits<allocator_type>::construct(alloc, front_guard.end, std::move(*begin_));
-                al_traits<allocator_type>::destroy(alloc, begin_);
-                ++begin_;
-                ++front_guard.end;
-            }
-        }
-
-        buffer_guard back_guard(alloc, new_end);
-
-        while(!empty() && !in_bounds(back_guard.begin) && end_ != last){
-            al_traits<allocator_type>::construct(alloc, back_guard.begin, std::move(end_[-1]));
-            al_traits<allocator_type>::destroy(alloc, end_ - 1);
-            --end_;
-            --back_guard.begin;
-        }
-
-        if(end_ == last){
-            pos = back_guard.begin;
-
-            while(end_ >= first){
-                al_traits<allocator_type>::destroy(alloc, end_ -1);
-                --end_;
-            }
-
-            while(!empty() && !in_bounds(back_guard.begin)){
-                al_traits<allocator_type>::construct(alloc, back_guard.begin, std::move(end_[-1]));
+            return begin_;
+        }else if(last == end_){
+            while(end_ > first){
                 al_traits<allocator_type>::destroy(alloc, end_ - 1);
                 --end_;
-                --back_guard.begin;
             }
+            return end_;
+        }else{
+            const size_type n = last - first;
+
+            const pointer new_begin = arr + offs.off_by(free_total() + n);
+            const pointer new_end = new_begin + size() - n;
+
+            return integrate(new_begin, new_end, first, n);
         }
-
-        begin_ = new_begin;
-        end_ = new_end;
-
-        front_guard.release();
-        back_guard.release();
-
-        return pos;
     }
 
     iterator erase(const_iterator position){
@@ -1032,7 +1067,7 @@ public:
                 const pointer new_begin = arr + offs.off_by(free_total() - 1);
                 const pointer new_end = new_begin + 1 + size();
 
-                const pointer free_space = shift(new_begin, new_end, position, 1);
+                const pointer free_space = segregate(new_begin, new_end, position, 1);
 
                 buffer_guard front_guard(alloc, new_begin, free_space);
                 buffer_guard back_guard(alloc, free_space + 1, new_end);
