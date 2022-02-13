@@ -1092,8 +1092,8 @@ public:
             reallocate(new_capacity, offset + !offset);
         }
 
-        al_traits<allocator_type>::construct(alloc, begin_.ptr - 1, std::forward<Args>(args)...);
-        return begin_++;
+        al_traits<allocator_type>::construct(alloc, begin_ - 1, std::forward<Args>(args)...);
+        return begin_--;
     }
 
     allocator_type get_allocator() const noexcept{

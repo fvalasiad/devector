@@ -116,4 +116,20 @@ TEST(ModifiersTest, InsertEraseTest) {
     EXPECT_EQ(vec[0], 54);
     EXPECT_EQ(vec[1], 94);
     EXPECT_EQ(vec[2], 432);
+
+    vec.emplace_back(4);
+    vec.emplace_front(9);
+    vec.emplace(vec.begin() + 2, 13);
+
+    EXPECT_EQ(vec.size(), 6);
+    EXPECT_FALSE(vec.empty());
+    EXPECT_GE(vec.capacity(), 6);
+
+    EXPECT_EQ(vec[0], 9);
+    EXPECT_EQ(vec[1], 54);
+    EXPECT_EQ(vec[2], 13);
+    EXPECT_EQ(vec[3], 94);
+    EXPECT_EQ(vec[4], 432);
+    EXPECT_EQ(vec[5], 4);
+
 }
