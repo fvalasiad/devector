@@ -14,6 +14,28 @@ TEST(OperatorEqualsTest, copyOperatorEquals) {
     for(const int& i: vec1){
         ASSERT_EQ(i, 20);
     }
+
+    rdsl::devector<int> vec2(1000,432432);
+    vec1 = vec2;
+    ASSERT_NE(vec1.data(), nullptr);
+    EXPECT_EQ(vec1.size(), 1000);
+    EXPECT_GE(vec1.capacity(), 1000);
+    ASSERT_FALSE(vec0.empty());
+
+    for(const int& i: vec1){
+        ASSERT_EQ(i, 432432);
+    }
+
+    vec2.assign(500, 343);
+    vec1 = vec2;
+    ASSERT_NE(vec1.data(), nullptr);
+    EXPECT_EQ(vec1.size(), 500);
+    EXPECT_GE(vec1.capacity(), 500);
+    ASSERT_FALSE(vec0.empty());
+
+    for(const int& i: vec1){
+        ASSERT_EQ(i, 343);
+    }
 }
 
 TEST(OperatorEqualsTest, moveOperatorEquals) {
