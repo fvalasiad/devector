@@ -1180,7 +1180,7 @@ public:
         return alloc;
     }
 
-    offset_by_type getOffsetBy() const noexcept{
+    offset_by_type get_offset_by() const noexcept{
         return offs;
     }
 };
