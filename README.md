@@ -1,5 +1,5 @@
 # devector
-Header-only **double ended vector** implementation for efficient insertions/removals at both the start  &amp; end of it. 
+Header-only **double ended vector** implementation for efficient insertions/removals at both the start  &amp; end of it at the expense of an extra pointer.
 
 Following C++ standard with slight modifications.
 
@@ -43,6 +43,7 @@ New methods are introduced, here is a list:
 * push_front()
 * pop_front()
 * emplace_front()
+* get_offset_by()
 
 each of which does exactly the same their x_back() pair does but for the front instead. resize() still exists and defaults to resize_back().
 
