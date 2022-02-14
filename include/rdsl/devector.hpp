@@ -779,22 +779,49 @@ public:
 
         offs = x.offs;
 
-        destroy_all();
-
-        if(al_traits<allocator_type>::propagate_on_container_copy_assignment::value && alloc != x.alloc){
-            auto new_capacity = capacity_to_fit(x.size());
-            
+        if(al_traits<allocator_type>::propagate_on_container_copy_assignment::value && alloc != x.alloc){            
+            destroy_all();
             deallocate();
-
+            
             alloc = x.alloc;
-            arr = allocate_n(new_capacity);
+
+            arr = allocate_n(capacity_to_fit(x.size()));
+            construct(x.begin(), x.size());
+
         }else{
             if(capacity_ < x.size()){
-                reallocate(capacity_to_fit(x.size()));
+                destroy_all();
+                deallocate();
+                arr = allocate_n(capacity_to_fit(x.size()));
+                construct(x.begin(), x.size());
+            }else{
+                const pointer new_begin = arr + offs.off_by(capacity_ - x.size());
+                const pointer new_end = new_begin + x.size();
+
+                while(!empty() && begin_ < new_begin){
+                    pop_front();
+                }
+                
+                while(!empty() && end_ > new_end){
+                    pop_back();
+                }
+
+                buffer_guard guard(alloc, new_begin);
+
+                for(auto it = x.begin_; it != x.end_; ++it, ++guard.end){
+                    if(in_bounds(guard.end)){
+                        *guard.end = *it;
+                    }else{
+                        al_traits<allocator_type>::construct(alloc, guard.end, *it);
+                    }
+                }
+
+                begin_ = new_begin;
+                end_ = new_end;
+                guard.release();
             }
         }
 
-        construct(x.begin(), x.size());
 
         return *this;
     }
@@ -806,20 +833,48 @@ public:
 
         offs = x.offs;
 
-        destroy_all();
-
         if(!al_traits<allocator_type>::propagate_on_container_move_assignment::value){
             if(alloc != x.alloc){
-                reallocate(capacity_to_fit(x.size()));
-                construct_move(x.begin(), x.size());
+                if(capacity_ < x.size()){
+                    destroy_all();
+                    deallocate();
+                    arr = allocate_n(capacity_to_fit(x.size()));
+                    construct_move(x.begin_, x.size());
+                }else{
+                    const pointer new_begin = arr + offs.off_by(capacity_ - x.size());
+                    const pointer new_end = new_begin + x.size();
+
+                    while(!empty() && begin_ < new_begin){
+                        pop_front();
+                    }
+                    
+                    while(!empty() && end_ > new_end){
+                        pop_back();
+                    }
+
+                    buffer_guard guard(alloc, new_begin);
+
+                    for(auto it = x.begin_; it != x.end_; ++it, ++guard.end){
+                        if(in_bounds(guard.end)){
+                            *guard.end = std::move(*it);
+                        }else{
+                            al_traits<allocator_type>::construct(alloc, guard.end, std::move(*it));
+                        }
+                    }
+
+                    begin_ = new_begin;
+                    end_ = new_end;
+                    guard.release();
+                }
             }else{
+                destroy_all();
                 deallocate();
                 steal_ownership(x);
             } 
         }else{
+            destroy_all();
             deallocate();
             steal_ownership(x);
-
             alloc = x.alloc;
         }
         
@@ -827,13 +882,38 @@ public:
     }
 
     devector& operator=(std::initializer_list<value_type> il){
-        destroy_all();
-
         if(capacity_ < il.size()){
-            reallocate(capacity_to_fit(il.size()));
+            destroy_all();
+            deallocate();
+            arr = allocate_n(capacity_to_fit(il.size()));
+            construct(il.begin(), il.size());
+        }else{
+            const pointer new_begin = arr + offs.off_by(capacity_ - il.size());
+            const pointer new_end = new_begin + il.size();
+
+            while(!empty() && begin_ < new_begin){
+                pop_front();
+            }
+            
+            while(!empty() && end_ > new_end){
+                pop_back();
+            }
+
+            buffer_guard guard(alloc, new_begin);
+
+            for(auto it = il.begin(); it != il.end(); ++it, ++guard.end){
+                if(in_bounds(guard.end)){
+                    *guard.end = *it;
+                }else{
+                    al_traits<allocator_type>::construct(alloc, guard.end, *it);
+                }
+            }
+
+            begin_ = new_begin;
+            end_ = new_begin + il.size();
+            guard.release();
         }
 
-        construct(il.begin(), il.size());
         return *this;
     }
 
