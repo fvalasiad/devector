@@ -831,7 +831,7 @@ public:
             return *this;
         }
 
-        offs = x.offs;
+        offs = std::move(x.offs);
 
         if(!al_traits<allocator_type>::propagate_on_container_move_assignment::value){
             if(alloc != x.alloc){
@@ -875,7 +875,7 @@ public:
             destroy_all();
             deallocate();
             steal_ownership(x);
-            alloc = x.alloc;
+            alloc = std::move(x.alloc);
         }
         
         return *this;
