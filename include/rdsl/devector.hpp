@@ -13,8 +13,8 @@
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT Walloc.arrANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE Walloc.arrANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
@@ -108,15 +108,42 @@ struct devector{
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 private:
-    pointer arr;
-    size_type capacity_;
+    struct compressed_alloc: public allocator_type{
+        compressed_alloc(const allocator_type& alloc = allocator_type())
+        :allocator_type(alloc)
+        {}
+
+        compressed_alloc(const compressed_alloc&) = delete;
+        compressed_alloc(compressed_alloc&&) noexcept = delete;
+        compressed_alloc& operator=(const compressed_alloc&) = delete;
+        compressed_alloc& operator=(compressed_alloc&&) noexcept = delete;
+
+        allocator_type& get() noexcept{ return *this; }
+        const allocator_type& get() const noexcept{ return *this; }
+
+        pointer arr;
+    }alloc;
+
+    struct compressed_offs: public offset_by_type{
+        compressed_offs(const offset_by_type& offs = offset_by_type())
+        :offset_by_type(offs)
+        {}
+
+        compressed_offs(const compressed_offs&) = delete;
+        compressed_offs(compressed_offs&&) noexcept = delete;
+        compressed_offs& operator=(const compressed_offs&) = delete;
+        compressed_offs& operator=(compressed_offs&&) noexcept = delete;
+
+        offset_by_type& get() noexcept{ return *this; }
+        const offset_by_type& get() const noexcept{ return *this; }
+
+        size_type capacity;
+    }offs;
+
     pointer begin_;
     pointer end_;
 
     static constexpr float factor = 1.6f; // new_capacity = capacity * factor
-    offset_by_type offs;
-    allocator_type alloc;
-    
 
     struct buffer_guard{
         pointer begin;
@@ -159,7 +186,7 @@ private:
         allocator_type& alloc;
 
         memory_guard(allocator_type& alloc, size_type capacity)
-        : alloc(alloc), capacity(capacity), arr(alloc.allocate(capacity)) {}
+        :alloc(alloc), capacity(capacity), arr(alloc.allocate(capacity)) {}
 
         void release(){
             arr = nullptr;
@@ -175,7 +202,7 @@ private:
 public:
 
     size_type capacity() const noexcept{
-        return capacity_;
+        return offs.capacity;
     }
 
     size_type max_size() const{
@@ -239,25 +266,25 @@ public:
     }
 
 private:
-    size_type free_front() const noexcept{ return begin_ - arr; }
-    size_type free_back() const noexcept{ return arr + capacity_ - end_; }
-    size_type free_total() const noexcept{ return capacity_ - size(); }
+    size_type free_front() const noexcept{ return begin_ - alloc.arr; }
+    size_type free_back() const noexcept{ return alloc.arr + offs.capacity - end_; }
+    size_type free_total() const noexcept{ return offs.capacity - size(); }
 
     pointer allocate_n(size_type n){
         auto ptr = alloc.allocate(n);
-        capacity_ = n;
+        offs.capacity = n;
         return ptr;
     }
 
     void deallocate() noexcept{
-        if(capacity_){
-            alloc.deallocate(arr, capacity_);
-            capacity_ = 0;
+        if(offs.capacity){
+            alloc.deallocate(alloc.arr, offs.capacity);
+            offs.capacity = 0;
         }
     }
 
     void construct(size_type n, const_reference val){
-        begin_ = end_ = arr + offs.off_by(capacity_ - n);
+        begin_ = end_ = alloc.arr + offs.off_by(offs.capacity - n);
         while(n--){
             al_traits<allocator_type>::construct(alloc, end_, val);
             ++end_;
@@ -266,7 +293,7 @@ private:
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
     void construct(InputIterator first, size_type distance){
-        begin_ = end_ = arr + offs.off_by(capacity_ - distance);
+        begin_ = end_ = alloc.arr + offs.off_by(offs.capacity - distance);
         while(distance--){
             al_traits<allocator_type>::construct(alloc, end_, *first);
             ++first;
@@ -276,7 +303,7 @@ private:
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
     void construct_move(InputIterator first, size_type distance){
-        begin_ = end_ = arr + offs.off_by(capacity_ - distance);
+        begin_ = end_ = alloc.arr + offs.off_by(offs.capacity - distance);
         while(distance--){
             al_traits<allocator_type>::construct(alloc, end_, std::move_if_noexcept(*first));
             ++first;
@@ -292,13 +319,13 @@ private:
     }
 
     void steal_ownership(devector& x) noexcept{
-        capacity_ = x.capacity_;
-        arr = x.arr;
+        offs.capacity = x.offs.capacity;
+        alloc.arr = x.alloc.arr;
         begin_ = x.begin_;
         end_ = x.end_;
         
-        x.arr = x.begin_ = x.end_ = nullptr;
-        x.capacity_ = 0;
+        x.alloc.arr = x.begin_ = x.end_ = nullptr;
+        x.offs.capacity = 0;
     }
     
     bool in_bounds(pointer it) const noexcept{
@@ -306,7 +333,7 @@ private:
     }
 
     int next_capacity() const noexcept{
-        return factor * capacity_ + 1;
+        return factor * offs.capacity + 1;
     }
     /**
      * @brief Allocates a new memory chunk of *new_capacity* capacity and copies all elements into it, respecting the offset factor.
@@ -323,10 +350,10 @@ private:
         destroy_all();
         deallocate();
 
-        arr = mem_guard.arr;
+        alloc.arr = mem_guard.arr;
         begin_ = buf_guard.begin;
         end_ = buf_guard.end;
-        capacity_ = new_capacity;
+        offs.capacity = new_capacity;
 
         buf_guard.release();
         mem_guard.release();
@@ -481,7 +508,7 @@ private:
     }
 
     size_type capacity_to_fit(size_type n) const noexcept{
-        float temp_capacity = capacity_ ? capacity_ : 1;
+        float temp_capacity = offs.capacity ? offs.capacity : 1;
         while(temp_capacity < n){
             temp_capacity = factor * temp_capacity;
         }
@@ -507,7 +534,7 @@ private:
                     ++end_;
                 }
             }else{
-                const pointer new_begin = arr + offs.off_by(free_total() - n);
+                const pointer new_begin = alloc.arr + offs.off_by(free_total() - n);
                 const pointer new_end = new_begin + n + size();
 
                 const pointer free_space = segregate(new_begin, new_end, position, n);
@@ -556,8 +583,8 @@ private:
             destroy_all();
             deallocate();
 
-            arr = mem_guard.arr;
-            capacity_ = mem_guard.capacity;
+            alloc.arr = mem_guard.arr;
+            offs.capacity = mem_guard.capacity;
 
             begin_ = buf_guard.begin;
             end_ = buf_guard.end;
@@ -574,8 +601,8 @@ public:
     explicit devector(const allocator_type& allocator = allocator_type(), const offset_by_type& offset_by = offset_by_type())
     :alloc(allocator), offs(offset_by)
     {
-        begin_ = end_ = arr = nullptr;
-        capacity_ = 0;
+        begin_ = end_ = alloc.arr = nullptr;
+        offs.capacity = 0;
     }
 
     explicit devector(const offset_by_type& offset_by)
@@ -590,7 +617,7 @@ public:
     )
     :alloc(allocator), offs(offset_by)
     {
-        arr = allocate_n(n);
+        alloc.arr = allocate_n(n);
         try{
             construct(n, val);
         }catch(...){
@@ -618,7 +645,7 @@ public:
     )
     :alloc(allocator), offs(offset_by)
     {
-       arr = allocate_n(distance);
+       alloc.arr = allocate_n(distance);
        try{
            construct(first, distance);
        }catch(...){
@@ -649,7 +676,7 @@ public:
     {
         if(is_at_least_forward<typename it_traits<InputIterator>::iterator_category>::value){
             const size_type distance = std::distance(first, last);
-            arr = allocate_n(distance);
+            alloc.arr = allocate_n(distance);
             try{
                 construct(first, distance);
             }catch(...){
@@ -695,15 +722,15 @@ public:
     {}
 
     devector(devector&& x, const allocator_type& allocator, const offset_by_type& offset_by) noexcept
-    : offs(offset_by)
+    :offs(offset_by)
     {
         if(allocator == x.alloc){
-            alloc = x.alloc;
+            alloc.get() = x.alloc.get();
             steal_ownership(x);
         }else{
-            alloc = allocator;
+            alloc.get() = allocator;
 
-            arr = allocate_n(x.size());
+            alloc.arr = allocate_n(x.size());
             construct_move(x.begin(), x.size());
         }
     }
@@ -736,7 +763,7 @@ public:
     template<class InputIterator, is_iterator<InputIterator> = 0>
     void assign (InputIterator first, size_type distance){
         destroy_all();
-        if(capacity_ < distance){
+        if(offs.capacity < distance){
             reallocate(capacity_to_fit(distance));
         }
         construct(first, distance);
@@ -748,7 +775,7 @@ public:
             assign(first, std::distance(first,last));
         }else{
             destroy_all();
-            begin_ = end_ = arr + offs.off_by(free_total());
+            begin_ = end_ = alloc.arr + offs.off_by(free_total());
             while(first != last){
                 push_back(*first);
                 ++first;
@@ -758,7 +785,7 @@ public:
 
     void assign(size_type n, const_reference val){
         destroy_all();
-        if(capacity_ < n){
+        if(offs.capacity < n){
             reallocate(capacity_to_fit(n));
         }
         construct(n, val);
@@ -766,7 +793,7 @@ public:
 
     void assign(std::initializer_list<value_type> il){
         destroy_all();
-        if(capacity_ < il.size()){
+        if(offs.capacity < il.size()){
             reallocate(capacity_to_fit(il.size()));
         }
         construct(il.begin(), il.size());
@@ -777,25 +804,25 @@ public:
             return *this;
         }
 
-        offs = x.offs;
+        offs.get() = x.offs.get();
 
         if(al_traits<allocator_type>::propagate_on_container_copy_assignment::value && alloc != x.alloc){            
             destroy_all();
             deallocate();
             
-            alloc = x.alloc;
+            alloc.get() = x.alloc.get();
 
-            arr = allocate_n(capacity_to_fit(x.size()));
+            alloc.arr = allocate_n(capacity_to_fit(x.size()));
             construct(x.begin(), x.size());
 
         }else{
-            if(capacity_ < x.size()){
+            if(offs.capacity < x.size()){
                 destroy_all();
                 deallocate();
-                arr = allocate_n(capacity_to_fit(x.size()));
+                alloc.arr = allocate_n(capacity_to_fit(x.size()));
                 construct(x.begin(), x.size());
             }else{
-                const pointer new_begin = arr + offs.off_by(capacity_ - x.size());
+                const pointer new_begin = alloc.arr + offs.off_by(offs.capacity - x.size());
                 const pointer new_end = new_begin + x.size();
 
                 while(!empty() && begin_ < new_begin){
@@ -831,17 +858,17 @@ public:
             return *this;
         }
 
-        offs = std::move(x.offs);
+        offs.get() = std::move(x.offs.get());
 
         if(!al_traits<allocator_type>::propagate_on_container_move_assignment::value){
             if(alloc != x.alloc){
-                if(capacity_ < x.size()){
+                if(offs.capacity < x.size()){
                     destroy_all();
                     deallocate();
-                    arr = allocate_n(capacity_to_fit(x.size()));
+                    alloc.arr = allocate_n(capacity_to_fit(x.size()));
                     construct_move(x.begin_, x.size());
                 }else{
-                    const pointer new_begin = arr + offs.off_by(capacity_ - x.size());
+                    const pointer new_begin = alloc.arr + offs.off_by(offs.capacity - x.size());
                     const pointer new_end = new_begin + x.size();
 
                     while(!empty() && begin_ < new_begin){
@@ -875,20 +902,20 @@ public:
             destroy_all();
             deallocate();
             steal_ownership(x);
-            alloc = std::move(x.alloc);
+            alloc.get() = std::move(x.alloc.get());
         }
         
         return *this;
     }
 
     devector& operator=(std::initializer_list<value_type> il){
-        if(capacity_ < il.size()){
+        if(offs.capacity < il.size()){
             destroy_all();
             deallocate();
-            arr = allocate_n(capacity_to_fit(il.size()));
+            alloc.arr = allocate_n(capacity_to_fit(il.size()));
             construct(il.begin(), il.size());
         }else{
-            const pointer new_begin = arr + offs.off_by(capacity_ - il.size());
+            const pointer new_begin = alloc.arr + offs.off_by(offs.capacity - il.size());
             const pointer new_end = new_begin + il.size();
 
             while(!empty() && begin_ < new_begin){
@@ -921,7 +948,7 @@ public:
         while(n < size()){
             pop_front();
         }
-        if(n > capacity_){
+        if(n > offs.capacity){
             reallocate(capacity_to_fit(n), free_back());
         }
         while(n > size()){
@@ -933,7 +960,7 @@ public:
         while(n < size()){
             pop_back();
         }
-        if(n > capacity_){
+        if(n > offs.capacity){
             reallocate(capacity_to_fit(n), free_front());
         }
         while(n > size()){
@@ -946,7 +973,7 @@ public:
     }
   
     void reserve(size_type n){
-        if(n > capacity_){
+        if(n > offs.capacity){
             reallocate(n);
         }
     }
@@ -967,7 +994,7 @@ public:
         if(in_bounds(begin_ + index)){
             return begin_[index];
         }else{
-            throw std::out_of_range("index " + std::to_string(index) + " out of range for array of size " + std::to_string(size()));
+            throw std::out_of_range("index " + std::to_string(index) + " out of range for alloc.array of size " + std::to_string(size()));
         }
     }
 
@@ -975,7 +1002,7 @@ public:
         if(in_bounds(begin_ + index)){
             return begin_[index];
         }else{
-            throw std::out_of_range("index " + std::to_string(index) + " out of range for array of size " + std::to_string(size()));
+            throw std::out_of_range("index " + std::to_string(index) + " out of range for alloc.array of size " + std::to_string(size()));
         }
     }
 
@@ -996,11 +1023,11 @@ public:
     }
 
     pointer data() noexcept{
-        return arr;
+        return alloc.arr;
     }
 
     const_pointer data() const noexcept{
-        return arr;
+        return alloc.arr;
     }
 
     void push_back(const_reference val){
@@ -1118,7 +1145,7 @@ public:
         }else{
             const size_type n = last - first;
 
-            const pointer new_begin = arr + offs.off_by(free_total() + n);
+            const pointer new_begin = alloc.arr + offs.off_by(free_total() + n);
             const pointer new_end = new_begin + size() - n;
 
             return integrate(new_begin, new_end, first, n);
@@ -1130,10 +1157,10 @@ public:
     }
 
     void swap(devector& x){
-        std::swap(arr, x.arr);
+        std::swap(alloc.arr, x.alloc.arr);
         std::swap(begin_, x.begin_);
         std::swap(end_, x.end_);
-        std::swap(capacity_, x.capacity_);
+        std::swap(offs.capacity, x.offs.capacity);
         std::swap(offs, x.offs);
         if(al_traits<allocator_type>::propagate_on_container_swap){
             std::swap(alloc, x.alloc);
