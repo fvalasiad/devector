@@ -13,8 +13,8 @@
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT Walloc.arrANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE Walloc.arrANTIES OF MERCHANTABILITY,
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
@@ -994,7 +994,7 @@ public:
         if(in_bounds(begin_ + index)){
             return begin_[index];
         }else{
-            throw std::out_of_range("index " + std::to_string(index) + " out of range for alloc.array of size " + std::to_string(size()));
+            throw std::out_of_range("index " + std::to_string(index) + " out of range for array of size " + std::to_string(size()));
         }
     }
 
@@ -1002,7 +1002,7 @@ public:
         if(in_bounds(begin_ + index)){
             return begin_[index];
         }else{
-            throw std::out_of_range("index " + std::to_string(index) + " out of range for alloc.array of size " + std::to_string(size()));
+            throw std::out_of_range("index " + std::to_string(index) + " out of range for array of size " + std::to_string(size()));
         }
     }
 
