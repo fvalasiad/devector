@@ -1114,12 +1114,28 @@ public:
         if(is_at_least_forward<typename it_traits<InputIterator>::iterator_category>::value){
             return insert(position, first, std::distance(first, last));
         }else{
-            auto pos = position - 1;
-            while(first != last){ // Seriously if you care about perfomance don't go for this case.
-                pos = insert(pos + 1, *first);
+            const auto index = position - cbegin();
+            memory_guard mem_guard(alloc, cend() - position + 1);
+            buffer_guard buf_guard(alloc, mem_guard.arr + mem_guard.capacity - 1);
+
+            while(buf_guard.begin != mem_guard.arr){
+                al_traits<allocator_type>::construct(alloc, buf_guard.begin, std::move(back()));
+                pop_back();
+                --buf_guard.begin;
+            }
+
+            while(first != last){
+                push_back(*first);
                 ++first;
             }
-            return pos;
+
+            reserve(capacity() + buf_guard.end - buf_guard.begin);
+            for(pointer it = buf_guard.begin; it != buf_guard.end; ++it){
+                al_traits<allocator_type>::construct(alloc, end_, std::move(*it));
+                ++end_;
+            }
+            
+            return begin_ + index;
         }
     }
 
