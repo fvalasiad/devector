@@ -1119,9 +1119,9 @@ public:
             buffer_guard buf_guard(alloc, mem_guard.arr + mem_guard.capacity - 1);
 
             while(buf_guard.begin != mem_guard.arr){
-                al_traits<allocator_type>::construct(alloc, buf_guard.begin, std::move(back()));
-                pop_back();
+                al_traits<allocator_type>::construct(alloc, buf_guard.begin - 1, std::move(back()));
                 --buf_guard.begin;
+                pop_back();
             }
 
             while(first != last){
