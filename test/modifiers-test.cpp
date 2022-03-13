@@ -1,6 +1,23 @@
 #include <gtest/gtest.h>
 #include "rdsl/devector.hpp"
 
+struct input_it: public std::iterator<std::input_iterator_tag, int> {
+    input_it(const input_it&) = default;
+    input_it(input_it&&) noexcept = default;
+    input_it& operator=(const input_it&) = default;
+    input_it& operator=(input_it&&) = default;
+
+    explicit input_it(int state = 0): state(state) {}
+
+    int state;
+
+    int operator*() { return state; }
+    input_it& operator++() { ++state; return *this; }
+    input_it operator++(int) { ++state; return input_it(state - 1); }
+
+    bool operator!=(const input_it& other) { return state != other.state; }
+};
+
 TEST(ModifiersTest, AssignTest) {
     rdsl::devector<int> vec(10,20);
     
@@ -132,4 +149,26 @@ TEST(ModifiersTest, InsertEraseTest) {
     EXPECT_EQ(vec[4], 432);
     EXPECT_EQ(vec[5], 4);
 
+    vec.insert(vec.begin() + 2, input_it(), input_it(10));
+    
+    EXPECT_EQ(vec.size(), 16);
+    EXPECT_FALSE(vec.empty());
+    EXPECT_GE(vec.capacity(), 16);
+
+    EXPECT_EQ(vec[0], 9);
+    EXPECT_EQ(vec[1], 54);
+    EXPECT_EQ(vec[2], 0);
+    EXPECT_EQ(vec[3], 1);
+    EXPECT_EQ(vec[4], 2);
+    EXPECT_EQ(vec[5], 3);
+    EXPECT_EQ(vec[6], 4);
+    EXPECT_EQ(vec[7], 5);
+    EXPECT_EQ(vec[8], 6);
+    EXPECT_EQ(vec[9], 7);
+    EXPECT_EQ(vec[10], 8);
+    EXPECT_EQ(vec[11], 9);
+    EXPECT_EQ(vec[12], 13);
+    EXPECT_EQ(vec[13], 94);
+    EXPECT_EQ(vec[14], 432);
+    EXPECT_EQ(vec[15], 4);
 }
