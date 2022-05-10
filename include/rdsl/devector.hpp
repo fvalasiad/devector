@@ -1230,15 +1230,17 @@ public:
 
 template<class T, class Alloc, class OffsetByA, class OffsetByB>
 bool operator== (const devector<T, Alloc, OffsetByA>& lhs, const devector<T, Alloc, OffsetByB>& rhs){
-    if(lhs.size == rhs){
-        for(auto it0 = lhs.begin(), it1 = rhs.begin(); it0 != lhs.end(); ++it0, ++it1){
-            if(*it0 != *it1){
-                return false;
-            }
-        }
-        return true;
+    if(lhs.size() != rhs.size()){
+        return false;
     }
-    return false;
+
+    for(auto it0 = lhs.begin(), it1 = rhs.begin(); it0 != lhs.end(); ++it0, ++it1){
+        if(*it0 != *it1){
+            return false;
+        }
+    }
+    
+    return true;
 }
 
 template<class T, class Alloc, class OffsetByA, class OffsetByB>
