@@ -631,9 +631,19 @@ public:
     :devector(n, val, allocator_type(), offset_by)
     {}
 
+#if __cplusplus < 201402L
     explicit devector(size_type n)
     :devector(n, value_type())
     {}
+#else
+    explicit devector(
+        size_type n,
+        const allocator_type& allocator = allocator_type(),
+        const offset_by_type& offset_by = offset_by_type()
+    )
+    :devector(n, value_type(), allocator, offset_by)
+    {}
+#endif
 
     template<class InputIterator, is_iterator<InputIterator> = 0>
     devector(
