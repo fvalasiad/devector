@@ -3,9 +3,7 @@ Header-only **double ended vector** implementation for efficient insertions/remo
 
 Following C++ standard with slight modifications.
 
-Currently C++11, C++14 coming next.
-
-**Now in Beta**
+Currently supports up to C++14.
 
 ## Implementation details
 **devector** keeps a dynamic array internally which it uses to store its objects. It differs from *std::vector* from the fact that *begin()* isn't necessarily pointing to the start of the array, it's instead up to the user to decide.
