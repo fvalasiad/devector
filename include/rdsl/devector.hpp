@@ -1260,7 +1260,8 @@ bool operator!= (const devector<T, Alloc, OffsetByA>& lhs, const devector<T, All
 
 template<class T, class Alloc, class OffsetByA, class OffsetByB>
 bool operator< (const devector<T, Alloc, OffsetByA>& lhs, const devector<T, Alloc, OffsetByB>& rhs){
-    for(auto it0 = lhs.cbegin(), it1 = rhs.cbegin(); it0 != lhs.cend(); ++it0, ++it1){
+    auto it1 = rhs.cbegin();
+    for(auto it0 = lhs.cbegin(); it0 != lhs.cend(); ++it0, ++it1){
         if(it1 == rhs.cend() || *it1 < *it0){
             return false;
         }else if(*it0 < *it1){
